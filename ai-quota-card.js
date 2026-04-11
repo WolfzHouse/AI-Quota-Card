@@ -375,24 +375,24 @@ class AIQuotaCard extends HTMLElement {
     const { items, loading, error, plan } = this.data;
 
     const displayEmail = email || '********@*****.com';
-    const displayIndex = auth_index !== undefined ? \`Auth Index: \${auth_index}\` : 'Auth 0';
+    const displayIndex = auth_index !== undefined ? `Auth Index: ${auth_index}` : 'Auth 0';
 
     const providerTitle = provider ? provider.charAt(0).toUpperCase() + provider.slice(1) : 'Unknown';
 
     let contentHtml = '';
 
     if (error) {
-      contentHtml += \`
+      contentHtml += `
         <div class="error-box">
           <div class="error-dot"></div>
-          \${error}
+          ${error}
         </div>
-      \`;
+      `;
     } else if (items.length === 0 && !loading) {
-      contentHtml += \`<div style="font-size:13px; color:var(--text-muted); font-style:italic;">No usage data found</div>\`;
+      contentHtml += `<div style="font-size:13px; color:var(--text-muted); font-style:italic;">No usage data found</div>`;
     } else {
       if (plan) {
-         contentHtml += \`<div class="plan-info">Plan: <strong>\${plan}</strong></div>\`;
+         contentHtml += `<div class="plan-info">Plan: <strong>${plan}</strong></div>`;
       }
       
       const isAntigravity = provider && provider.toLowerCase() === 'antigravity';
@@ -402,101 +402,101 @@ class AIQuotaCard extends HTMLElement {
         let pClass = pct > 20 ? 'pct-high' : 'pct-low';
         let bClass = pct > 20 ? 'bg-high' : 'bg-low';
 
-        contentHtml += \`
+        contentHtml += `
           <div class="group">
             <div class="group-header">
               <div class="group-title">
-                \${group.name}
-                \${isAntigravity ? \`<span class="group-count">(\${group.models.length})</span>\` : ''}
+                ${group.name}
+                ${isAntigravity ? `<span class="group-count">(${group.models.length})</span>` : ''}
               </div>
               <div class="group-stats">
-                <span class="\${pClass}">\${pct}% left</span>
-                \${group.resetTime ? \`<span class="group-reset">\${group.resetTime}</span>\` : ''}
+                <span class="${pClass}">${pct}% left</span>
+                ${group.resetTime ? `<span class="group-reset">${group.resetTime}</span>` : ''}
               </div>
             </div>
             <div class="progress-bar">
-               <div class="progress-fill \${bClass}" style="width: \${pct}%"></div>
+               <div class="progress-fill ${bClass}" style="width: ${pct}%"></div>
             </div>
-        \`;
+        `;
         
         if (isAntigravity) {
-           contentHtml += \`<div class="sub-items">\`;
+           contentHtml += `<div class="sub-items">`;
            group.models.forEach(m => {
               let mpClass = m.percentage > 20 ? 'pct-high' : 'pct-low';
               let mbClass = m.percentage > 20 ? 'bg-high' : 'bg-low';
-              contentHtml += \`
+              contentHtml += `
                 <div class="group">
                   <div class="group-header">
-                    <div class="group-title" style="font-weight: 400; font-size: 12px;">\${m.name}</div>
+                    <div class="group-title" style="font-weight: 400; font-size: 12px;">${m.name}</div>
                     <div class="group-stats">
-                      <span class="\${mpClass}">\${m.percentage}%</span>
-                      \${m.resetTime ? \`<span class="group-reset" style="font-size:10px">\${m.resetTime}</span>\` : ''}
+                      <span class="${mpClass}">${m.percentage}%</span>
+                      ${m.resetTime ? `<span class="group-reset" style="font-size:10px">${m.resetTime}</span>` : ''}
                     </div>
                   </div>
                   <div class="progress-bar" style="height: 4px;">
-                     <div class="progress-fill \${mbClass}" style="width: \${m.percentage}%"></div>
+                     <div class="progress-fill ${mbClass}" style="width: ${m.percentage}%"></div>
                   </div>
                 </div>
-              \`;
+              `;
            });
-           contentHtml += \`</div>\`;
+           contentHtml += `</div>`;
         } else {
-           contentHtml += \`<div class="sub-items">\`;
+           contentHtml += `<div class="sub-items">`;
            group.models.forEach(m => {
               let mpClass = m.percentage > 20 ? 'pct-high' : 'pct-low';
               let mbClass = m.percentage > 20 ? 'bg-high' : 'bg-low';
-              contentHtml += \`
+              contentHtml += `
                 <div class="group">
                   <div class="group-header">
-                    <div class="group-title" style="font-weight: 400; font-size: 12px;">\${m.name}</div>
+                    <div class="group-title" style="font-weight: 400; font-size: 12px;">${m.name}</div>
                     <div class="group-stats">
-                      <span class="\${mpClass}">\${m.percentage}%</span>
-                      \${m.resetTime ? \`<span class="group-reset" style="font-size:10px">\${m.resetTime}</span>\` : ''}
+                      <span class="${mpClass}">${m.percentage}%</span>
+                      ${m.resetTime ? `<span class="group-reset" style="font-size:10px">${m.resetTime}</span>` : ''}
                     </div>
                   </div>
                   <div class="progress-bar" style="height: 4px;">
-                     <div class="progress-fill \${mbClass}" style="width: \${m.percentage}%"></div>
+                     <div class="progress-fill ${mbClass}" style="width: ${m.percentage}%"></div>
                   </div>
                 </div>
-              \`;
+              `;
            });
-           contentHtml += \`</div>\`;
+           contentHtml += `</div>`;
         }
         
-        contentHtml += \`</div>\`;
+        contentHtml += `</div>`;
       });
     }
 
-    this.shadowRoot.innerHTML = \`
-      <style>\${this.getStyles()}</style>
+    this.shadowRoot.innerHTML = `
+      <style>${this.getStyles()}</style>
       <ha-card>
         <div class="header">
           <div class="header-info">
             <div class="title-row">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-              \${displayEmail}
+              ${displayEmail}
             </div>
             <div class="badges-row">
               <div class="badge">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                \${providerTitle} Quota
+                ${providerTitle} Quota
               </div>
               <div class="badge" style="background: transparent; color: var(--text-muted);">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                \${displayIndex}
+                ${displayIndex}
               </div>
             </div>
           </div>
-          <button class="refresh-btn \${loading ? 'loading' : ''}" id="refreshBtn">
+          <button class="refresh-btn ${loading ? 'loading' : ''}" id="refreshBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
             Refresh
           </button>
         </div>
         <div class="content">
-          \${contentHtml}
+          ${contentHtml}
         </div>
       </ha-card>
-    \`;
+    `;
 
     this.shadowRoot.getElementById('refreshBtn').addEventListener('click', () => {
       this.fetchQuota();
