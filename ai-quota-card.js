@@ -109,6 +109,26 @@ class AIQuotaCard extends HTMLElement {
   parseResponse(provider, data) {
     if (!data) return [];
     
+    const formatResetTime = (targetMs) => {
+      const d = new Date(targetMs);
+      if (isNaN(d.getTime())) return '-';
+      const abs = `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}, ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      
+      const diff = targetMs - Date.now();
+      if (diff <= 0) return `${abs} (Ready)`;
+      
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      
+      let rel = '';
+      if (days > 0) rel = `${days}d ${hours}h`;
+      else if (hours > 0) rel = `${hours}h ${minutes}m`;
+      else rel = `${minutes}m`;
+      
+      return `${abs} (${rel})`;
+    };
+    
     if (provider === 'claude') {
       const models = [];
       const addUsage = (key, name) => {
@@ -116,7 +136,12 @@ class AIQuotaCard extends HTMLElement {
         if (usage && usage.utilization !== undefined) {
           const u = parseFloat(usage.utilization);
           if (!isNaN(u)) {
-             models.push({ name, percentage: Math.max(0, Math.min(100, 100 - u)), resetTime: usage.resets_at || '' });
+             let rt = '';
+             if (usage.resets_at) {
+                const ms = new Date(usage.resets_at).getTime();
+                rt = formatResetTime(ms);
+             }
+             models.push({ name, percentage: Math.max(0, Math.min(100, 100 - u)), resetTime: rt });
           }
         }
       };
@@ -127,17 +152,6 @@ class AIQuotaCard extends HTMLElement {
     
     else if (provider === 'codex') {
        const limits = [];
-       
-       const formatTimeUntil = (targetMs) => {
-          const diff = targetMs - Date.now();
-          if (diff <= 0) return 'Ready';
-          const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-          const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-          if (days > 0) return `${days}d ${hours}h`;
-          if (hours > 0) return `${hours}h ${minutes}m`;
-          return `${minutes}m`;
-       };
        
        const processWin = (name, win) => {
           if (!win) return;
@@ -154,10 +168,10 @@ class AIQuotaCard extends HTMLElement {
           let resetTime = '-';
           if (win.reset_at && win.reset_at > 0) {
              const targetMs = win.reset_at < 10000000000 ? win.reset_at * 1000 : win.reset_at;
-             resetTime = formatTimeUntil(targetMs);
+             resetTime = formatResetTime(targetMs);
           } else if (win.reset_after_seconds && win.reset_after_seconds > 0) {
              const targetMs = Date.now() + (win.reset_after_seconds * 1000);
-             resetTime = formatTimeUntil(targetMs);
+             resetTime = formatResetTime(targetMs);
           }
           
           limits.push({ name, percentage: pct, resetTime: resetTime });
@@ -166,9 +180,15 @@ class AIQuotaCard extends HTMLElement {
        const rl = data.rate_limit || {};
        const crl = data.code_review_rate_limit || {};
        
+       const planType = typeof data.plan_type === 'string' ? data.plan_type.toLowerCase() : 'plus';
+       
        // Process main windows
-       processWin('5-hour limit', rl.primary_window || data['5_hour_window']);
-       processWin('Weekly limit', rl.secondary_window || data['weekly_window']);
+       if (planType === 'free') {
+           processWin('Weekly limit', rl.primary_window || data['5_hour_window'] || data['weekly_window']);
+       } else {
+           processWin('5-hour limit', rl.primary_window || data['5_hour_window']);
+           processWin('Weekly limit', rl.secondary_window || data['weekly_window']);
+       }
        
        // Process code review windows
        processWin('Code review weekly limit', crl.primary_window || data['code_review_window']);
@@ -180,18 +200,36 @@ class AIQuotaCard extends HTMLElement {
       if (!data.models) return [];
       const grouped = {};
       Object.entries(data.models).forEach(([key, val]) => {
-         if (val.isInternal || key.startsWith('chat_')) return;
-         let name = val.displayName || key;
-         let rem = val.remainingFraction ?? val.remaining ?? 0;
-         let pct = typeof rem === 'number' ? rem : parseFloat(rem);
-         if (isNaN(pct)) pct = 0;
+         if (val.isInternal || key.startsWith('chat_') || key === 'tab_flash_lite_preview' || key === 'tab_jump_flash_lite_preview') return;
+         let name = val.displayName || val.display_name || key;
+         if (!val.displayName && !val.display_name) {
+             if (key === 'rev19-uic3-1p') name = 'Gemini 2.5 Computer Use';
+             else if (key === 'gemini-3-pro-image') name = 'Gemini 3 Pro Image';
+             else if (key === 'gemini-2.5-flash-lite') name = 'Gemini 2.5 Flash Lite';
+             else if (key === 'gemini-2.5-flash') name = 'Gemini 2.5 Flash';
+         }
          
          const ri = val.quotaInfo || val;
-         const resetStr = ri.resetTime || '';
+         const resetStr = ri.resetTime || ri.reset_time || '';
          let resetTime = '';
          if (resetStr) {
             const d = new Date(resetStr);
-            if (!isNaN(d)) resetTime = `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}, ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+            if (!isNaN(d.getTime())) resetTime = formatResetTime(d.getTime());
+         }
+         
+         const source = val.quotaInfo || val;
+         let rem = source.remainingFraction ?? source.remaining_fraction ?? source.remaining;
+         
+         let parsedRemaining = null;
+         if (typeof rem === 'number') {
+           parsedRemaining = rem;
+         } else if (typeof rem === 'string') {
+           const parsed = parseFloat(rem);
+           if (!isNaN(parsed)) parsedRemaining = parsed;
+         }
+         
+         if (parsedRemaining === null) {
+           parsedRemaining = resetStr ? 0 : 1;
          }
          
          let groupName = 'Other';
@@ -205,7 +243,7 @@ class AIQuotaCard extends HTMLElement {
          else if (lName.includes('claude')) groupName = 'Claude';
          
          if (!grouped[groupName]) grouped[groupName] = [];
-         grouped[groupName].push({ name, percentage: Math.round(pct * 100), resetTime });
+         grouped[groupName].push({ name, percentage: Math.round(parsedRemaining * 100), resetTime });
       });
       
       return Object.entries(grouped).map(([name, items]) => {
