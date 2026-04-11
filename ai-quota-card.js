@@ -127,6 +127,18 @@ class AIQuotaCard extends HTMLElement {
     
     else if (provider === 'codex') {
        const limits = [];
+       
+       const formatTimeUntil = (targetMs) => {
+          const diff = targetMs - Date.now();
+          if (diff <= 0) return 'Ready';
+          const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+          const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          if (days > 0) return `${days}d ${hours}h`;
+          if (hours > 0) return `${hours}h ${minutes}m`;
+          return `${minutes}m`;
+       };
+       
        const processWin = (name, win) => {
           if (!win) return;
           let pct = 0;
@@ -138,13 +150,29 @@ class AIQuotaCard extends HTMLElement {
              pct = Math.round((Number(remaining) / Math.max(Number(total), 1)) * 100);
           }
           pct = Math.max(0, Math.min(100, pct));
-          const date = new Date((win.reset_time_ms || 0));
-          const resetTime = isNaN(date.getTime()) ? '' : `${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')}, ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
+          
+          let resetTime = '-';
+          if (win.reset_at && win.reset_at > 0) {
+             const targetMs = win.reset_at < 10000000000 ? win.reset_at * 1000 : win.reset_at;
+             resetTime = formatTimeUntil(targetMs);
+          } else if (win.reset_after_seconds && win.reset_after_seconds > 0) {
+             const targetMs = Date.now() + (win.reset_after_seconds * 1000);
+             resetTime = formatTimeUntil(targetMs);
+          }
+          
           limits.push({ name, percentage: pct, resetTime: resetTime });
        };
-       const rl = data.rate_limit || data;
+       
+       const rl = data.rate_limit || {};
+       const crl = data.code_review_rate_limit || {};
+       
+       // Process main windows
        processWin('5-hour limit', rl.primary_window || data['5_hour_window']);
        processWin('Weekly limit', rl.secondary_window || data['weekly_window']);
+       
+       // Process code review windows
+       processWin('Code review weekly limit', crl.primary_window || data['code_review_window']);
+
        return [{ name: 'Codex Quota', models: limits }];
     }
     
