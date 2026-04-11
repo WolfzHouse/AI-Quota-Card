@@ -7,6 +7,8 @@ The design mimics the beautiful interface of `zero-limit`.
 
 ## Installation
 
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=WolfzHouse&repository=AI-Quota-Card&category=plugin)
+
 ### Method 1: HACS (Recommended)
 1. Open HACS in your Home Assistant.
 2. Click the three dots in the top right corner and select **Custom repositories**.
