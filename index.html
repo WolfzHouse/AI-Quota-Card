@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Quota Card Tester</title>
+  <style>
+    body {
+      background-color: #121212;
+      color: #eaeaea;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+    .card-container {
+      width: 100%;
+      max-width: 400px;
+    }
+  </style>
+  <script src="./ai-quota-card.js"></script>
+</head>
+<body>
+
+  <h1>AI Quota Card Local Test</h1>
+  <p>To see real data, run CLIProxyAPI on port 8080 and ensure the proxy_url matches.</p>
+  
+  <div class="card-container">
+    <ai-quota-card id="claude-card"></ai-quota-card>
+  </div>
+
+  <div class="card-container">
+    <ai-quota-card id="antigravity-card"></ai-quota-card>
+  </div>
+
+  <div class="card-container">
+    <ai-quota-card id="codex-card"></ai-quota-card>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const claude = document.getElementById('claude-card');
+      claude.setConfig({
+        proxy_url: "http://localhost:8080",
+        provider: "claude",
+        auth_index: "0",
+        email: "claude-test@test.com"
+      });
+
+      const antigravity = document.getElementById('antigravity-card');
+      antigravity.setConfig({
+        proxy_url: "http://localhost:8080",
+        provider: "antigravity",
+        auth_index: "1",
+        email: "antigravity-test@gmail.com"
+      });
+
+      const codex = document.getElementById('codex-card');
+      codex.setConfig({
+        proxy_url: "http://localhost:8080",
+        provider: "codex",
+        auth_index: "2",
+        email: "codex-test@team.com"
+      });
+    });
+  </script>
+</body>
+</html>
