@@ -48,6 +48,11 @@ class AIQuotaCard extends HTMLElement {
         headers = { 'User-Agent': 'antigravity/1.11.5 windows/amd64' };
         method = 'POST';
         payloadData = '{}';
+      } else if (p === 'gemini-cli') {
+        targetUrl = 'https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota';
+        headers = { 'Content-Type': 'application/json' };
+        method = 'POST';
+        payloadData = JSON.stringify({ project: this.config.gemini_project_id || '' });
       } else {
         throw new Error(`Unsupported provider: ${provider}`);
       }
@@ -150,6 +155,7 @@ class AIQuotaCard extends HTMLElement {
       return [{ name: 'Claude Quota', models: models }];
     } 
     
+
     else if (provider === 'codex') {
        const limits = [];
        
@@ -194,6 +200,21 @@ class AIQuotaCard extends HTMLElement {
        processWin('Code review weekly limit', crl.primary_window || data['code_review_window']);
 
        return [{ name: 'Codex Quota', models: limits }];
+    }
+    
+    else if (provider === 'gemini-cli') {
+       if (!Array.isArray(data.buckets)) return [];
+       const limits = data.buckets.map(b => {
+          let pct = Number(b.remainingFraction ?? b.remaining_fraction ?? 0) * 100;
+          let rt = '';
+          if (b.resetTime || b.reset_time) {
+             const rtStr = b.resetTime || b.reset_time;
+             const d = new Date(rtStr);
+             if (!isNaN(d.getTime())) rt = formatResetTime(d.getTime());
+          }
+          return { name: String(b.modelId ?? b.model_id ?? 'Unknown'), percentage: Math.round(pct), resetTime: rt };
+       });
+       return [{ name: 'Gemini CLI Quota', models: limits }];
     }
     
     else if (provider === 'antigravity') {

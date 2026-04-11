@@ -46,9 +46,10 @@ email: claude-account@example.com
 | `type` | string | **Required** | `custom:ai-quota-card` |
 | `proxy_url` | string | **Required** | URL where CLIProxyAPI runs. Ensure CORS is not blocking it. |
 | `proxy_token`| string | Optional | If your CLIProxyAPI uses a Management Key, insert it here. |
-| `provider` | string | **Required** | Name of the AI Provider (`claude`, `antigravity`, or `codex`). |
+| `provider` | string | **Required** | Name of the AI Provider (`claude`, `antigravity`, `codex`, or `gemini-cli`). |
 | `auth_index` | string | Optional | `auth_index` used by CLIProxyAPI representing the account (Default: 0). |
 | `email` | string | Optional | The account or alias you want to display on the card header. |
+| `gemini_project_id` | string | Optional | Only required if `provider: gemini-cli`. The Google Cloud Project ID to query quota for. |
 
 ## Troubleshooting
 - **API Error / No Data**: Ensure the proxy URL is accessible from your browser (checking CORS is important since HA interacts from the browser side). Ensure the token/auth mapped at the backend is active.
