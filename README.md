@@ -9,7 +9,7 @@ The integration automatically creates backend sensors for each quota tier and pr
 - 🤖 **Multi-provider support**: Claude (Anthropic), Codex (OpenAI), Gemini CLI, Antigravity, GitHub Copilot, Kiro
 - 📊 **Native HA sensors**: Each quota limit becomes a real sensor — use them in automations, history graphs, and alerts
 - 🖥️ **Lovelace card**: Auto-registered on install, no manual resource setup needed
-- 🔄 **Hybrid mode**: Card can display data directly from backend sensors (no extra API calls) or fetch independently
+- 🔄 **Hybrid mode**: Card can read from backend sensors (no extra API calls) or fetch independently via proxy
 - ⚙️ **UI-based setup**: Add and configure hubs directly from Settings → Devices & Services
 
 ---
@@ -42,14 +42,16 @@ After installation, click **+ Add Integration** and fill in:
 | Field | Description |
 |---|---|
 | **Provider** | AI provider: `claude`, `codex`, `gemini-cli`, `antigravity`, `copilot`, `kiro` |
-| **Auth Index** | The account index configured in your CLIProxyAPI (default: `0`) |
+| **Auth Index** | The account identifier used in your CLIProxyAPI config (e.g. `0`, `1`, or a token hash) |
 | **CLIProxy Token** | Your CLIProxyAPI management token |
 | **Account Name** *(optional)* | Display alias shown on the card header |
 | **CLIProxy URL** *(optional)* | Your proxy URL (default: `https://ai.wolfz.shop`) |
 
+> **Important:** The **Auth Index** you enter here is the exact value you must also use in your Lovelace card config. Copy it precisely — the integration uses it to link the card to the correct sensors.
+
 You can add **multiple hubs** — one per provider/account combination.
 
-To edit a hub after creation, click **Configure** on it in the integrations page. Note: only the token, alias and URL can be changed — provider and auth index are fixed after creation.
+To edit a hub after creation, click **Configure** on it in the integrations page. Note: only the token, alias, and URL can be changed — provider and auth index are fixed after creation.
 
 ---
 
@@ -58,7 +60,7 @@ To edit a hub after creation, click **Configure** on it in the integrations page
 After a restart, a new `custom:ai-quota-card` element is automatically available. Add a **Manual Card** to your dashboard with one of the two modes:
 
 ### Mode 1: Backend Mode *(Recommended)*
-Reads data directly from your Home Assistant sensors. No extra API calls — loads instantly.
+Reads data directly from your Home Assistant sensors. Loads instantly — no extra API calls.
 
 ```yaml
 type: custom:ai-quota-card
@@ -67,8 +69,11 @@ provider: claude
 auth_index: 0
 ```
 
+> **The `auth_index` here must exactly match the Auth Index you entered when setting up the integration hub.**
+> If you used `0` during setup, use `0` here. If you used a token hash like `abc123`, use that exact string here.
+
 ### Mode 2: Standalone Mode
-Fetches data independently from your proxy. Useful without the backend integration.
+Fetches data directly from your proxy. Useful without the backend integration.
 
 ```yaml
 type: custom:ai-quota-card
@@ -84,7 +89,7 @@ proxy_token: YOUR_TOKEN_HERE
 |---|---|---|---|
 | `type` | string | ✅ | `custom:ai-quota-card` |
 | `provider` | string | ✅ | Provider name: `claude`, `codex`, `gemini-cli`, `antigravity`, `copilot`, `kiro` |
-| `auth_index` | string/number | ✅ | Account index matching your CLIProxyAPI config |
+| `auth_index` | string | ✅ | Must exactly match the Auth Index set in your integration hub |
 | `backend` | boolean | ➖ | Set `true` to read from HA sensors instead of fetching from proxy |
 | `proxy_url` | string | ➖ | Proxy URL *(Standalone mode only)* |
 | `proxy_token` | string | ➖ | Management token *(Standalone mode only)* |
@@ -98,6 +103,12 @@ The card JS was not loaded by your browser. Try:
 1. **Fully restart Home Assistant** (not just reload).
 2. **Hard refresh your browser** (`Ctrl+Shift+R` / `Cmd+Shift+R`).
 3. If still failing: open browser DevTools (`F12`) → **Application** → **Service Workers** → **Unregister**, then refresh.
+
+### `No backend sensors found for provider="..." auth_index="..."`
+The `auth_index` in your Lovelace card YAML does not match the one used in the integration hub. Fix:
+1. Go to **Settings → Devices & Services** and check the hub name — it shows `(Auth: YOUR_INDEX)`.
+2. Copy that exact value into your card config: `auth_index: "YOUR_INDEX"`.
+3. If your auth_index contains only letters and numbers, wrap it in quotes in YAML (e.g. `auth_index: "abc123"`) to prevent YAML from misinterpreting it.
 
 ### `Config flow could not be loaded: 500 Internal Server Error`
 Usually caused by a stale cached integration version. Fix:
