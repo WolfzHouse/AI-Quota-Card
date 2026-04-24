@@ -1,0 +1,12 @@
+{
+  "domain": "ai_quota",
+  "name": "AI Web Quota",
+  "codeowners": ["@WolfzHouse"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/WolfzHouse/AI-Quota-Card",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "requirements": [],
+  "version": "1.0.0"
+}
