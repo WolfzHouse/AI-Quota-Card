@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.components.frontend import add_extra_js_url
 
 from .const import DOMAIN
 from .coordinator import AIQuotaDataUpdateCoordinator
@@ -13,6 +15,21 @@ from .coordinator import AIQuotaDataUpdateCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
+
+_CARD_URL = f"/{DOMAIN}/ai-quota-card.js"
+_CARD_REGISTERED = False
+
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Register the Lovelace card JS file as a static resource automatically."""
+    global _CARD_REGISTERED
+    if not _CARD_REGISTERED:
+        card_path = Path(__file__).parent / "ai-quota-card.js"
+        hass.http.register_static_path(_CARD_URL, str(card_path), cache_headers=False)
+        add_extra_js_url(hass, _CARD_URL)
+        _CARD_REGISTERED = True
+        _LOGGER.info("AI Quota Card registered at %s", _CARD_URL)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
