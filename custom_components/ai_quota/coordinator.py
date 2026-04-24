@@ -350,8 +350,12 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                                 raise UpdateFailed(f"Malformed JSON on API Error {status_code}: {raw_body}")
                     
                     if not (200 <= status_code < 300):
-                        err_msg = json.dumps(raw_body)[:100]
+                        err_msg = json.dumps(raw_body)[:200]
                         raise UpdateFailed(f"API Error {status_code}: {err_msg}")
+
+                    _LOGGER.warning("[AI Quota DEBUG] Provider: %s | Raw body keys: %s | Full body: %s",
+                                    provider, list(raw_body.keys()) if isinstance(raw_body, dict) else type(raw_body),
+                                    json.dumps(raw_body)[:500])
 
                     parsed_items = self._parse_provider_data(provider, raw_body)
                     
