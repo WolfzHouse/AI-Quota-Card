@@ -6,21 +6,139 @@ class AIQuotaCard extends HTMLElement {
   }
 
   setConfig(config) {
-    if (!config.proxy_url) {
-      throw new Error("You need to define proxy_url");
-    }
     if (!config.provider) {
       throw new Error("You need to define provider");
     }
+    if (!config.backend && !config.proxy_url) {
+      throw new Error("You need to define proxy_url, or set backend: true");
+    }
     this.config = config;
-    this.fetchQuota();
+    if (!this.config.backend) {
+      this.fetchQuota();
+    }
   }
 
   set hass(hass) {
     this._hass = hass;
+    
+    let shouldRender = false;
+
+    if (this.config && this.config.backend) {
+        if (this.parseBackendData()) {
+            shouldRender = true;
+        }
+    }
+    
     if (!this.shadowRoot.innerHTML && this.config) {
+        shouldRender = true;
+    }
+    
+    if (shouldRender) {
         this.render();
     }
+  }
+
+  handleRefresh() {
+    if (this.data.loading) return;
+    
+    if (this.config.backend) {
+        const provider = this.config.provider.toLowerCase();
+        const auth_index = String(this.config.auth_index || '0');
+        
+        // Find any valid sensor to trigger the coordinator
+        const anySensor = Object.keys(this._hass.states).find(e => e.startsWith(`sensor.ai_quota_${provider}_${auth_index}_`));
+        
+        if (anySensor) {
+            this.data.loading = true;
+            this.render();
+            this._hass.callService('homeassistant', 'update_entity', { entity_id: anySensor })
+                .then(() => {
+                    this.data.loading = false;
+                    this._lastBackendUpdate = null; // force re-parse
+                    // State change will automatically trigger set hass and re-render
+                })
+                .catch(err => {
+                    this.data.loading = false;
+                    this.data.error = "Update failed";
+                    this.render();
+                });
+        }
+    } else {
+        this.fetchQuota();
+    }
+  }
+
+  parseBackendData() {
+    if (!this._hass) return false;
+    
+    const provider = this.config.provider.toLowerCase();
+    const auth_index = String(this.config.auth_index || '0');
+    const prefix = `sensor.ai_quota_${provider}_${auth_index}_`;
+    
+    const relevantEntities = Object.values(this._hass.states).filter(stateObj => stateObj.entity_id.startsWith(prefix));
+    
+    if (relevantEntities.length === 0) {
+        if (this.data.error !== `No backend sensors found starting with ${prefix}`) {
+            this.data.error = `No backend sensors found starting with ${prefix}`;
+            return true;
+        }
+        return false;
+    }
+    
+    const latestUpdate = relevantEntities.map(e => e.last_updated).sort().pop();
+    if (this._lastBackendUpdate === latestUpdate) {
+        return false; // Nothing changed
+    }
+    this._lastBackendUpdate = latestUpdate;
+    
+    this.data.error = null;
+    this.data.loading = false;
+    
+    const firstEntity = relevantEntities[0];
+    this.data.plan = firstEntity.attributes.plan || 'Free';
+    this.config.email = firstEntity.attributes.email || 'Unknown';
+    
+    const groupsMap = {};
+    
+    relevantEntities.forEach(e => {
+        const groupName = e.attributes.group_name;
+        const modelName = e.attributes.model_name;
+        if (!groupName) return;
+        
+        if (!groupsMap[groupName]) {
+            groupsMap[groupName] = { name: groupName, modelsMap: {}, avgPercentage: 0 };
+        }
+        
+        if (!modelName) {
+            groupsMap[groupName].avgPercentage = parseFloat(e.state) || 0;
+            return;
+        }
+        
+        if (!groupsMap[groupName].modelsMap[modelName]) {
+            groupsMap[groupName].modelsMap[modelName] = { name: modelName, percentage: 0, resetTime: '' };
+        }
+        
+        if (e.attributes.unit_of_measurement === '%') {
+            groupsMap[groupName].modelsMap[modelName].percentage = parseFloat(e.state) || 0;
+        } else {
+            groupsMap[groupName].modelsMap[modelName].resetTime = e.state === 'unknown' ? '' : e.state;
+        }
+    });
+    
+    const items = [];
+    Object.values(groupsMap).forEach(g => {
+        const models = Object.values(g.modelsMap);
+        if (models.length > 0) {
+            items.push({
+                name: g.name,
+                percentage: g.avgPercentage || Math.round(models.reduce((sum, m) => sum + m.percentage, 0) / models.length),
+                models: models
+            });
+        }
+    });
+    
+    this.data.items = items;
+    return true; // Indicate that data changed and render is needed
   }
 
   async fetchQuota() {
@@ -648,7 +766,7 @@ class AIQuotaCard extends HTMLElement {
     `;
 
     this.shadowRoot.getElementById('refreshBtn').addEventListener('click', () => {
-      this.fetchQuota();
+      this.handleRefresh();
     });
   }
 }

@@ -137,6 +137,18 @@ class AIQuotaPercentageSensor(CoordinatorEntity, SensorEntity):
         
         return None
 
+    @property
+    def extra_state_attributes(self):
+        """Return entity specific state attributes."""
+        attrs = {
+            "group_name": self._group_name,
+            "model_name": self._model_name,
+        }
+        if self.coordinator.data:
+            attrs["plan"] = self.coordinator.data.get("plan", "Unknown Plan")
+            attrs["email"] = self.coordinator.data.get("email", "Unknown Email")
+        return attrs
+
 class AIQuotaResetSensor(CoordinatorEntity, SensorEntity):
     """Auxiliary string sensor for reset times or usage stats."""
 
@@ -170,3 +182,15 @@ class AIQuotaResetSensor(CoordinatorEntity, SensorEntity):
                     if model["name"] == self._model_name:
                         return model.get("resetTime")
         return None
+
+    @property
+    def extra_state_attributes(self):
+        """Return entity specific state attributes."""
+        attrs = {
+            "group_name": self._group_name,
+            "model_name": self._model_name,
+        }
+        if self.coordinator.data:
+            attrs["plan"] = self.coordinator.data.get("plan", "Unknown Plan")
+            attrs["email"] = self.coordinator.data.get("email", "Unknown Email")
+        return attrs
