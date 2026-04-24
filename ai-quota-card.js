@@ -152,7 +152,18 @@ class AIQuotaCard extends HTMLElement {
       };
       addUsage('five_hour', '5-hour limit');
       addUsage('seven_day', '7-day limit');
-      return [{ name: 'Claude Quota', models: models }];
+      addUsage('seven_day_sonnet', '7-day-sonnet limit');
+      addUsage('seven_day_opus', '7-day-opus limit');
+      
+      let extraUsageDisplay = null;
+      const extra = data.extra_usage;
+      if (extra && extra.is_enabled) {
+        if (extra.used_credits !== undefined && extra.monthly_limit !== undefined) {
+          extraUsageDisplay = `$${extra.used_credits} / $${extra.monthly_limit}`;
+        }
+      }
+      
+      return [{ name: 'Claude Quota', models: models, extra_usage: extraUsageDisplay }];
     } 
     
 
@@ -489,8 +500,13 @@ class AIQuotaCard extends HTMLElement {
         let pClass = pct > 20 ? 'pct-high' : 'pct-low';
         let bClass = pct > 20 ? 'bg-high' : 'bg-low';
 
+        contentHtml += `<div class="group">`;
+        
+        if (group.extra_usage) {
+           contentHtml += `<div class="plan-info" style="margin-bottom: 12px;">Extra Usage: <strong>${group.extra_usage}</strong></div>`;
+        }
+
         contentHtml += `
-          <div class="group">
             <div class="group-header">
               <div class="group-title">
                 ${group.name}
