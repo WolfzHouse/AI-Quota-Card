@@ -56,6 +56,9 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
 
     def _parse_provider_data(self, provider: str, data: dict[str, Any]) -> list[dict[str, Any]]:
         """Ported logic from ai-quota-card.js to parse the response payload natively."""
+        if not data or not isinstance(data, dict):
+            _LOGGER.warning("[AI Quota] %s returned empty or non-dict body: %s", provider, data)
+            return []
         items = []
 
         if provider == "antigravity":
@@ -341,21 +344,21 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                     result = await response.json()
                     status_code = result.get("statusCode") or result.get("status_code", 200)
 
-                    raw_body = result.get("body", {})
+                    raw_body = result.get("body") or {}
                     if isinstance(raw_body, str):
                         try:
                             raw_body = json.loads(raw_body)
                         except json.JSONDecodeError:
-                            if status_code >= 400:
-                                raise UpdateFailed(f"Malformed JSON on API Error {status_code}: {raw_body}")
-                    
+                            raw_body = {}
+                    if not isinstance(raw_body, dict):
+                        raw_body = {}
+
                     if not (200 <= status_code < 300):
                         err_msg = json.dumps(raw_body)[:200]
                         raise UpdateFailed(f"API Error {status_code}: {err_msg}")
 
-                    _LOGGER.warning("[AI Quota DEBUG] Provider: %s | Raw body keys: %s | Full body: %s",
-                                    provider, list(raw_body.keys()) if isinstance(raw_body, dict) else type(raw_body),
-                                    json.dumps(raw_body)[:500])
+                    _LOGGER.warning("[AI Quota DEBUG] Provider: %s | Keys: %s | Body: %s",
+                                    provider, list(raw_body.keys()), json.dumps(raw_body)[:800])
 
                     parsed_items = self._parse_provider_data(provider, raw_body)
                     
