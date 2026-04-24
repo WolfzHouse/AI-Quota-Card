@@ -90,7 +90,8 @@ class AIQuotaOptionsFlowHandler(config_entries.OptionsFlow):
 
         # Merge data and options to allow editing what was initially set in data
         options = dict(self.config_entry.data)
-        options.update(self.config_entry.options)
+        if hasattr(self.config_entry, "options") and self.config_entry.options:
+            options.update(self.config_entry.options)
 
         schema = vol.Schema(
             {
