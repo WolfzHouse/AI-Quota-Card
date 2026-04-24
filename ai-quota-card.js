@@ -101,13 +101,17 @@ class AIQuotaCard extends HTMLElement {
          this.data.items = this.parseResponse(p, rawBody);
          
          let detectedPlan = 'Free';
-         if (p === 'codex' && rawBody?.plan_type) {
+         if (this.config.plan) {
+             detectedPlan = this.config.plan;
+         } else if (p === 'codex' && rawBody?.plan_type) {
              detectedPlan = rawBody.plan_type;
          } else if (p === 'claude') {
-             if (rawBody?.organization && rawBody.organization.type) {
-                 detectedPlan = rawBody.organization.type;
-             } else if (rawBody?.extra_usage?.is_enabled) {
+             const extra = rawBody ? rawBody.extra_usage : null;
+             if (extra && (extra.is_enabled || extra.monthly_limit !== undefined)) {
                  detectedPlan = 'Team';
+             } else if (rawBody && rawBody.organization && rawBody.organization.type) {
+                 detectedPlan = rawBody.organization.type;
+                 detectedPlan = detectedPlan.charAt(0).toUpperCase() + detectedPlan.slice(1);
              }
          }
          this.data.plan = detectedPlan;
