@@ -546,8 +546,8 @@ class AIQuotaCard extends HTMLElement {
       items.forEach(group => {
         let pct = group.percentage !== undefined ? group.percentage : group.models[0]?.percentage || 0;
         let cTheme = getColorTheme(pct);
-        let pClass = \`pct-\${cTheme}\`;
-        let bClass = \`bg-\${cTheme}\`;
+        let pClass = `pct-${cTheme}`;
+        let bClass = `bg-${cTheme}`;
 
         contentHtml += `
           <div class="group">
@@ -570,8 +570,8 @@ class AIQuotaCard extends HTMLElement {
            contentHtml += `<div class="sub-items">`;
            group.models.forEach(m => {
               let mcTheme = getColorTheme(m.percentage);
-              let mpClass = \`pct-\${mcTheme}\`;
-              let mbClass = \`bg-\${mcTheme}\`;
+              let mpClass = `pct-${mcTheme}`;
+              let mbClass = `bg-${mcTheme}`;
               contentHtml += `
                 <div class="group">
                   <div class="group-header">
@@ -592,8 +592,8 @@ class AIQuotaCard extends HTMLElement {
            contentHtml += `<div class="sub-items">`;
            group.models.forEach(m => {
               let mcTheme = getColorTheme(m.percentage);
-              let mpClass = \`pct-\${mcTheme}\`;
-              let mbClass = \`bg-\${mcTheme}\`;
+              let mpClass = `pct-${mcTheme}`;
+              let mbClass = `bg-${mcTheme}`;
               contentHtml += `
                 <div class="group">
                   <div class="group-header">
