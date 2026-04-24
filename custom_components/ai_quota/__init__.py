@@ -8,6 +8,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
+from homeassistant.components.http import StaticPathConfig
+
 from .const import DOMAIN
 from .coordinator import AIQuotaDataUpdateCoordinator
 
@@ -24,7 +26,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     global _CARD_REGISTERED
     if not _CARD_REGISTERED:
         card_path = Path(__file__).parent / "ai-quota-card.js"
-        hass.http.register_static_path(_CARD_URL, str(card_path), cache_headers=False)
+        await hass.http.async_register_static_paths([
+            StaticPathConfig(_CARD_URL, str(card_path), cache_headers=False)
+        ])
         _CARD_REGISTERED = True
         _LOGGER.info("AI Quota Card static path registered at %s", _CARD_URL)
 
