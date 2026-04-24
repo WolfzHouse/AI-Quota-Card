@@ -328,7 +328,10 @@ class AIQuotaCard extends HTMLElement {
         --text-muted: #8c8c8c;
         --meter-bg: #404040;
         --meter-green: #2ecc71;
+        --meter-blue: #3498db;
         --meter-yellow: #f1c40f;
+        --meter-orange: #e67e22;
+        --meter-red: #e74c3c;
         --color-destructive: #e74c3c;
         --bg-muted: #2a2a2a;
         --badge-bg: #383838;
@@ -462,8 +465,11 @@ class AIQuotaCard extends HTMLElement {
       .group-pct {
         font-weight: 600;
       }
-      .pct-high { color: var(--meter-green); }
-      .pct-low { color: var(--meter-yellow); }
+      .pct-green { color: var(--meter-green); }
+      .pct-blue { color: var(--meter-blue); }
+      .pct-yellow { color: var(--meter-yellow); }
+      .pct-orange { color: var(--meter-orange); }
+      .pct-red { color: var(--meter-red); }
       .group-reset {
         background: var(--badge-bg);
         padding: 2px 6px;
@@ -481,8 +487,11 @@ class AIQuotaCard extends HTMLElement {
         height: 100%;
         transition: width 0.5s ease-out;
       }
-      .bg-high { background: var(--meter-green); }
-      .bg-low { background: var(--meter-yellow); }
+      .bg-green { background: var(--meter-green); }
+      .bg-blue { background: var(--meter-blue); }
+      .bg-yellow { background: var(--meter-yellow); }
+      .bg-orange { background: var(--meter-orange); }
+      .bg-red { background: var(--meter-red); }
       .sub-items {
          margin-top: 8px;
          display: flex;
@@ -526,10 +535,19 @@ class AIQuotaCard extends HTMLElement {
       
       const isAntigravity = provider && provider.toLowerCase() === 'antigravity';
       
+      const getColorTheme = (p) => {
+         if (p >= 80) return 'green';
+         if (p >= 60) return 'blue';
+         if (p >= 40) return 'yellow';
+         if (p >= 20) return 'orange';
+         return 'red';
+      };
+      
       items.forEach(group => {
         let pct = group.percentage !== undefined ? group.percentage : group.models[0]?.percentage || 0;
-        let pClass = pct > 20 ? 'pct-high' : 'pct-low';
-        let bClass = pct > 20 ? 'bg-high' : 'bg-low';
+        let cTheme = getColorTheme(pct);
+        let pClass = \`pct-\${cTheme}\`;
+        let bClass = \`bg-\${cTheme}\`;
 
         contentHtml += `
           <div class="group">
@@ -551,8 +569,9 @@ class AIQuotaCard extends HTMLElement {
         if (isAntigravity) {
            contentHtml += `<div class="sub-items">`;
            group.models.forEach(m => {
-              let mpClass = m.percentage > 20 ? 'pct-high' : 'pct-low';
-              let mbClass = m.percentage > 20 ? 'bg-high' : 'bg-low';
+              let mcTheme = getColorTheme(m.percentage);
+              let mpClass = \`pct-\${mcTheme}\`;
+              let mbClass = \`bg-\${mcTheme}\`;
               contentHtml += `
                 <div class="group">
                   <div class="group-header">
@@ -572,8 +591,9 @@ class AIQuotaCard extends HTMLElement {
         } else {
            contentHtml += `<div class="sub-items">`;
            group.models.forEach(m => {
-              let mpClass = m.percentage > 20 ? 'pct-high' : 'pct-low';
-              let mbClass = m.percentage > 20 ? 'bg-high' : 'bg-low';
+              let mcTheme = getColorTheme(m.percentage);
+              let mpClass = \`pct-\${mcTheme}\`;
+              let mbClass = \`bg-\${mcTheme}\`;
               contentHtml += `
                 <div class="group">
                   <div class="group-header">
