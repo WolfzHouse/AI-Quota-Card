@@ -99,7 +99,18 @@ class AIQuotaCard extends HTMLElement {
 
       if (statusCode >= 200 && statusCode < 300) {
          this.data.items = this.parseResponse(p, rawBody);
-         this.data.plan = (p === 'codex' && rawBody?.plan_type) ? rawBody.plan_type : 'Free';
+         
+         let detectedPlan = 'Free';
+         if (p === 'codex' && rawBody?.plan_type) {
+             detectedPlan = rawBody.plan_type;
+         } else if (p === 'claude') {
+             if (rawBody?.organization && rawBody.organization.type) {
+                 detectedPlan = rawBody.organization.type;
+             } else if (rawBody?.extra_usage?.is_enabled) {
+                 detectedPlan = 'Team';
+             }
+         }
+         this.data.plan = detectedPlan;
       } else {
         throw new Error(`API Error ${statusCode}: ${JSON.stringify(rawBody || result.bodyText).substring(0, 50)}`);
       }
