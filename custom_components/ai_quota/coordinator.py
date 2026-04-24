@@ -382,5 +382,9 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                         "api_payload": raw_body
                     }
 
+        except UpdateFailed:
+            raise
         except Exception as err:
+            import traceback  # noqa: PLC0415
+            _LOGGER.error("[AI Quota CRASH] Provider=%s\n%s", provider, traceback.format_exc())
             raise UpdateFailed(f"Error communicating with CLIProxyAPI: {err}")
