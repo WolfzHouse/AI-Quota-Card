@@ -1,21 +1,22 @@
-# AI Quota Custom Card
+# AI Quota Custom Integration
 
-A Home Assistant custom Lovelace card to display AI API quotas (Claude, Antigravity, Codex) utilizing `CLIProxyAPI` as the backend.
-The design mimics the beautiful interface of `zero-limit`.
+A Home Assistant native custom integration (and Lovelace card) to display AI API quotas (Claude, Antigravity, Codex) utilizing `CLIProxyAPI` as the backend.
+The system automatically spawns your limit tiers as backend sensors and provides a beautiful Lovelace card!
 
 ![AI Quota Card Preview](./assets/preview.png)
 
 ## Installation
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=WolfzHouse&repository=AI-Quota-Card&category=plugin)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=WolfzHouse&repository=AI-Quota-Card&category=integration)
 
 ### Method 1: HACS (Recommended)
 1. Open HACS in your Home Assistant.
 2. Click the three dots in the top right corner and select **Custom repositories**.
 3. Add the URL of this repository.
-4. Select Category: **Lovelace**.
+4. Select Category: **Integration**.
 5. Click Add and then Download the "AI Quota Card" repository.
-6. Refresh your dashboard.
+6. Restart Home Assistant completely!
+7. Navigate to Settings -> Devices & Services -> Add Integration -> search for "AI Web Quota".
 
 ### Method 2: Manual Installation
 1. Go to your Home Assistant configuration directory (`/config`).

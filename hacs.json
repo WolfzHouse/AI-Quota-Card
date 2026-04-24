@@ -1,6 +1,6 @@
 {
-  "name": "AI Quota Card",
+  "name": "AI Quota Integration",
   "render_readme": true,
-  "filename": "ai-quota-card.js",
-  "iot_class": "Local Push"
+  "iot_class": "Cloud Polling",
+  "hacs": "1.32.0"
 }
