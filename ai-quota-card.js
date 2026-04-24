@@ -70,75 +70,80 @@ class AIQuotaCard extends HTMLElement {
 
   parseBackendData() {
     if (!this._hass) return false;
-    
+
     const provider = this.config.provider.toLowerCase();
-    const auth_index = String(this.config.auth_index || '0');
-    const prefix = `sensor.ai_quota_${provider}_${auth_index}_`;
-    
-    const relevantEntities = Object.values(this._hass.states).filter(stateObj => stateObj.entity_id.startsWith(prefix));
-    
+    const auth_index = String(this.config.auth_index ?? '0');
+
+    // Match by attributes instead of entity_id prefix — robust against any auth_index format
+    const relevantEntities = Object.values(this._hass.states).filter(s =>
+      s.entity_id.startsWith('sensor.ai_quota_') &&
+      s.attributes.provider === provider &&
+      String(s.attributes.auth_index) === auth_index
+    );
+
     if (relevantEntities.length === 0) {
-        if (this.data.error !== `No backend sensors found starting with ${prefix}`) {
-            this.data.error = `No backend sensors found starting with ${prefix}`;
-            return true;
-        }
-        return false;
+      const msg = `No backend sensors found for provider="${provider}" auth_index="${auth_index}". Check your integration is set up correctly.`;
+      if (this.data.error !== msg) {
+        this.data.error = msg;
+        return true;
+      }
+      return false;
     }
-    
+
     const latestUpdate = relevantEntities.map(e => e.last_updated).sort().pop();
     if (this._lastBackendUpdate === latestUpdate) {
-        return false; // Nothing changed
+      return false;
     }
     this._lastBackendUpdate = latestUpdate;
-    
+
     this.data.error = null;
     this.data.loading = false;
-    
+
     const firstEntity = relevantEntities[0];
     this.data.plan = firstEntity.attributes.plan || 'Free';
     this.config.email = firstEntity.attributes.email || 'Unknown';
-    
+
     const groupsMap = {};
-    
+
     relevantEntities.forEach(e => {
-        const groupName = e.attributes.group_name;
-        const modelName = e.attributes.model_name;
-        if (!groupName) return;
-        
-        if (!groupsMap[groupName]) {
-            groupsMap[groupName] = { name: groupName, modelsMap: {}, avgPercentage: 0 };
-        }
-        
-        if (!modelName) {
-            groupsMap[groupName].avgPercentage = parseFloat(e.state) || 0;
-            return;
-        }
-        
-        if (!groupsMap[groupName].modelsMap[modelName]) {
-            groupsMap[groupName].modelsMap[modelName] = { name: modelName, percentage: 0, resetTime: '' };
-        }
-        
-        if (e.attributes.unit_of_measurement === '%') {
-            groupsMap[groupName].modelsMap[modelName].percentage = parseFloat(e.state) || 0;
-        } else {
-            groupsMap[groupName].modelsMap[modelName].resetTime = e.state === 'unknown' ? '' : e.state;
-        }
+      const groupName = e.attributes.group_name;
+      const modelName = e.attributes.model_name;
+      if (!groupName) return;
+
+      if (!groupsMap[groupName]) {
+        groupsMap[groupName] = { name: groupName, modelsMap: {}, avgPercentage: 0 };
+      }
+
+      if (!modelName) {
+        groupsMap[groupName].avgPercentage = parseFloat(e.state) || 0;
+        return;
+      }
+
+      if (!groupsMap[groupName].modelsMap[modelName]) {
+        groupsMap[groupName].modelsMap[modelName] = { name: modelName, percentage: 0, resetTime: '' };
+      }
+
+      if (e.attributes.unit_of_measurement === '%') {
+        groupsMap[groupName].modelsMap[modelName].percentage = parseFloat(e.state) || 0;
+      } else {
+        groupsMap[groupName].modelsMap[modelName].resetTime = e.state === 'unknown' ? '' : e.state;
+      }
     });
-    
+
     const items = [];
     Object.values(groupsMap).forEach(g => {
-        const models = Object.values(g.modelsMap);
-        if (models.length > 0) {
-            items.push({
-                name: g.name,
-                percentage: g.avgPercentage || Math.round(models.reduce((sum, m) => sum + m.percentage, 0) / models.length),
-                models: models
-            });
-        }
+      const models = Object.values(g.modelsMap);
+      if (models.length > 0) {
+        items.push({
+          name: g.name,
+          percentage: g.avgPercentage || Math.round(models.reduce((sum, m) => sum + m.percentage, 0) / models.length),
+          models: models
+        });
+      }
     });
-    
+
     this.data.items = items;
-    return true; // Indicate that data changed and render is needed
+    return true;
   }
 
   async fetchQuota() {

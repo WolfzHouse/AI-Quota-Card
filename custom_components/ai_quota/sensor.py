@@ -106,6 +106,7 @@ class AIQuotaPercentageSensor(CoordinatorEntity, SensorEntity):
         self._attr_device_info = device_info
         
         self._provider = provider
+        self._auth_index = str(auth_index)
         self._group_name = group_name
         self._model_name = model_name
         
@@ -143,6 +144,8 @@ class AIQuotaPercentageSensor(CoordinatorEntity, SensorEntity):
         attrs = {
             "group_name": self._group_name,
             "model_name": self._model_name,
+            "provider": self._provider,
+            "auth_index": self._auth_index,
         }
         if self.coordinator.data:
             attrs["plan"] = self.coordinator.data.get("plan", "Unknown Plan")
