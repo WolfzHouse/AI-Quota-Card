@@ -161,47 +161,47 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
 
         elif provider == "codex":
             limits = []
-            def process_win(name: str, win: dict):
-                if not win:
+
+            def process_win(name: str, win):
+                if not win or not isinstance(win, dict):
                     return
                 pct = 0
                 if win.get("used_percent") is not None:
                     pct = max(0, min(100, round(100 - float(win["used_percent"]))))
                 else:
-                    remaining = float(win.get("remaining_count", 0))
-                    total = float(win.get("total_count", 1))
-                    total = max(total, 1)
-                    pct = max(0, min(100, round((remaining / total) * 100)))
-                
+                    remaining = float(win.get("remaining_count") or 0)
+                    total = float(win.get("total_count") or 1)
+                    pct = max(0, min(100, round((remaining / max(total, 1)) * 100)))
+
                 rt = ""
-                if win.get("reset_at") and float(win["reset_at"]) > 0:
-                    target_ms = float(win["reset_at"])
-                    if target_ms < 10000000000:
+                reset_at = win.get("reset_at")
+                if reset_at and float(reset_at) > 0:
+                    target_ms = float(reset_at)
+                    # reset_at is Unix seconds, convert to ms
+                    if target_ms < 10_000_000_000:
                         target_ms *= 1000
                     rt = self._format_reset_time(target_ms)
                 elif win.get("reset_after_seconds") and float(win["reset_after_seconds"]) > 0:
-                    import time
-                    target_ms = (time.time() + float(win["reset_after_seconds"])) * 1000
-                    rt = self._format_reset_time(target_ms)
+                    import time as _time  # noqa: PLC0415
+                    rt = self._format_reset_time((_time.time() + float(win["reset_after_seconds"])) * 1000)
 
                 limits.append({"name": name, "percentage": pct, "resetTime": rt})
 
-            rl = data.get("rate_limit", {})
-            crl = data.get("code_review_rate_limit", {})
-            
-            plan_type = data.get("plan_type", "plus")
-            if isinstance(plan_type, str):
-                plan_type = plan_type.lower()
-            
-            # Process main windows
+            # Use `or {}` so null JSON values don't crash .get() calls
+            rl = data.get("rate_limit") or {}
+            crl = data.get("code_review_rate_limit") or {}
+
+            plan_type = (data.get("plan_type") or "plus").lower()
+
             if plan_type == "free":
-                process_win("Weekly limit", rl.get("primary_window") or data.get("5_hour_window") or data.get("weekly_window"))
+                process_win("Weekly limit", rl.get("primary_window"))
             else:
-                process_win("5-hour limit", rl.get("primary_window") or data.get("5_hour_window"))
-                process_win("Weekly limit", rl.get("secondary_window") or data.get("weekly_window"))
-            
-            # Process code review windows
-            process_win("Code review weekly limit", crl.get("primary_window") or data.get("code_review_window"))
+                # primary_window = 5-hour (18000s), secondary_window = weekly
+                process_win("5-hour limit", rl.get("primary_window"))
+                process_win("Weekly limit", rl.get("secondary_window"))
+
+            # Code review windows (null for most accounts)
+            process_win("Code review limit", crl.get("primary_window"))
 
             items.append({"name": "Codex Quota", "models": limits})
             
