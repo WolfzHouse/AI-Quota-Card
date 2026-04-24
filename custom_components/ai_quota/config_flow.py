@@ -95,9 +95,9 @@ class AIQuotaOptionsFlowHandler(config_entries.OptionsFlow):
 
         schema = vol.Schema(
             {
-                vol.Required(CONF_PROXY_TOKEN, default=options.get(CONF_PROXY_TOKEN, "")): str,
-                vol.Optional(CONF_ACCOUNT_NAME, default=options.get(CONF_ACCOUNT_NAME, "")): str,
-                vol.Optional(CONF_PROXY_URL, default=options.get(CONF_PROXY_URL, DEFAULT_PROXY_URL)): str,
+                vol.Required(CONF_PROXY_TOKEN, default=str(options.get(CONF_PROXY_TOKEN) or "")): str,
+                vol.Optional(CONF_ACCOUNT_NAME, default=str(options.get(CONF_ACCOUNT_NAME) or "")): str,
+                vol.Optional(CONF_PROXY_URL, default=str(options.get(CONF_PROXY_URL) or DEFAULT_PROXY_URL)): str,
             }
         )
 
