@@ -159,7 +159,9 @@ class AIQuotaCard extends HTMLElement {
       const extra = data.extra_usage;
       if (extra && extra.is_enabled) {
         if (extra.used_credits !== undefined && extra.monthly_limit !== undefined) {
-          extraUsageDisplay = `$${extra.used_credits} / $${extra.monthly_limit}`;
+          const used = (Number(extra.used_credits) / 100).toFixed(2);
+          const total = (Number(extra.monthly_limit) / 100).toFixed(2);
+          extraUsageDisplay = `$${used} / $${total}`;
         }
       }
       
