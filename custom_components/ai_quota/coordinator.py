@@ -164,35 +164,41 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                 pct = 0
                 if win.get("used_percent") is not None:
                     pct = max(0, min(100, round(100 - float(win["used_percent"]))))
-                elif win.get("used_credits") is not None and win.get("hard_limit") is not None and float(win["hard_limit"]) > 0:
-                    val = (float(win["used_credits"]) / float(win["hard_limit"])) * 100
-                    pct = max(0, min(100, round(100 - val)))
+                else:
+                    remaining = float(win.get("remaining_count", 0))
+                    total = float(win.get("total_count", 1))
+                    total = max(total, 1)
+                    pct = max(0, min(100, round((remaining / total) * 100)))
                 
                 rt = ""
-                reset_ms = win.get("reset_time_ms")
-                if reset_ms:
-                    rt = self._format_reset_time(float(reset_ms))
+                if win.get("reset_at") and float(win["reset_at"]) > 0:
+                    target_ms = float(win["reset_at"])
+                    if target_ms < 10000000000:
+                        target_ms *= 1000
+                    rt = self._format_reset_time(target_ms)
+                elif win.get("reset_after_seconds") and float(win["reset_after_seconds"]) > 0:
+                    import time
+                    target_ms = (time.time() + float(win["reset_after_seconds"])) * 1000
+                    rt = self._format_reset_time(target_ms)
+
                 limits.append({"name": name, "percentage": pct, "resetTime": rt})
 
-            windows = data.get("windows", {})
-            for w in windows.values():
-                title = "Primary Limit"
-                if w.get("label"):
-                    title = w["label"]
-                elif data.get("plan_type") == "free" and w.get("window_type") == "weekly":
-                    title = "Weekly limit"
-                elif w.get("window_type"):
-                    title = w["window_type"] + " limit"
-                
-                process_win(title, w)
+            rl = data.get("rate_limit", {})
+            crl = data.get("code_review_rate_limit", {})
             
-            rev = data.get("code_review")
-            if rev and rev.get("enabled"):
-                for w in rev.get("windows", {}).values():
-                    rc = "Code Review Limit"
-                    if w.get("window_type"):
-                        rc = f"Code Review {w['window_type']} limit"
-                    process_win(rc, w)
+            plan_type = data.get("plan_type", "plus")
+            if isinstance(plan_type, str):
+                plan_type = plan_type.lower()
+            
+            # Process main windows
+            if plan_type == "free":
+                process_win("Weekly limit", rl.get("primary_window") or data.get("5_hour_window") or data.get("weekly_window"))
+            else:
+                process_win("5-hour limit", rl.get("primary_window") or data.get("5_hour_window"))
+                process_win("Weekly limit", rl.get("secondary_window") or data.get("weekly_window"))
+            
+            # Process code review windows
+            process_win("Code review weekly limit", crl.get("primary_window") or data.get("code_review_window"))
 
             items.append({"name": "Codex Quota", "models": limits})
             
