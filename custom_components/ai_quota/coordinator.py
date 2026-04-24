@@ -300,11 +300,17 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
         if not cfg:
             raise UpdateFailed(f"Unknown provider: {provider}")
 
+        headers = {
+            "Authorization": "Bearer $TOKEN$",
+            "Content-Type": "application/json"
+        }
+        headers.update(cfg.get("headers", {}))
+
         req_body = {
             "authIndex": auth_index,
             "method": cfg["method"],
             "url": cfg["url"],
-            "header": cfg.get("headers", {})
+            "header": headers
         }
 
         if provider == "gemini-cli":
