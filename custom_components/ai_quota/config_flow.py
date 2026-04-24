@@ -5,7 +5,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant import config_entries
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
@@ -15,8 +15,7 @@ from .const import (
     CONF_PROVIDER,
     CONF_AUTH_INDEX,
     CONF_PROXY_TOKEN,
-    CONF_GEMINI_PROJECT_ID,
-    CONF_CUSTOM_PLAN_NAME,
+    CONF_ACCOUNT_NAME,
     DEFAULT_PROXY_URL,
     PROVIDERS
 )
@@ -39,9 +38,8 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         ),
         vol.Required(CONF_AUTH_INDEX, default="0"): str,
         vol.Required(CONF_PROXY_TOKEN): str,
+        vol.Optional(CONF_ACCOUNT_NAME, default=""): str,
         vol.Optional(CONF_PROXY_URL, default=DEFAULT_PROXY_URL): str,
-        vol.Optional(CONF_GEMINI_PROJECT_ID): str,
-        vol.Optional(CONF_CUSTOM_PLAN_NAME): str,
     }
 )
 
@@ -66,3 +64,40 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        """Create the options flow."""
+        return AIQuotaOptionsFlowHandler(config_entry)
+
+
+class AIQuotaOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options flow for AI Web Quota."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        # Merge data and options to allow editing what was initially set in data
+        options = dict(self.config_entry.data)
+        options.update(self.config_entry.options)
+
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_PROXY_TOKEN, default=options.get(CONF_PROXY_TOKEN, "")): str,
+                vol.Optional(CONF_ACCOUNT_NAME, default=options.get(CONF_ACCOUNT_NAME, "")): str,
+                vol.Optional(CONF_PROXY_URL, default=options.get(CONF_PROXY_URL, DEFAULT_PROXY_URL)): str,
+            }
+        )
+
+        return self.async_show_form(step_id="init", data_schema=schema)

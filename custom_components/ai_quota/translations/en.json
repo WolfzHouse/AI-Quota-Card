@@ -7,10 +7,9 @@
         "data": {
           "provider": "Provider Name",
           "auth_index": "Auth Index / File ID",
+          "account_name": "Account Email or Alias (Optional)",
           "proxy_token": "CLIProxy API Token",
-          "proxy_url": "CLIProxy API URL",
-          "gemini_project_id": "Gemini Project ID (Optional)",
-          "custom_plan_name": "Custom Plan Name Override (Optional)"
+          "proxy_url": "CLIProxy API URL"
         }
       }
     },

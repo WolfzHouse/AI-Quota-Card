@@ -19,8 +19,7 @@ from .const import (
     CONF_PROVIDER,
     CONF_AUTH_INDEX,
     CONF_PROXY_TOKEN,
-    CONF_GEMINI_PROJECT_ID,
-    CONF_CUSTOM_PLAN_NAME,
+    CONF_ACCOUNT_NAME,
     DEFAULT_SCAN_INTERVAL_MINUTES
 )
 
@@ -253,10 +252,15 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from the proxy endpoint."""
-        provider = self.entry.data[CONF_PROVIDER]
-        auth_index = self.entry.data.get(CONF_AUTH_INDEX, "0")
-        proxy_token = self.entry.data[CONF_PROXY_TOKEN]
-        proxy_url = self.entry.data.get(CONF_PROXY_URL, DEFAULT_PROXY_URL)
+        
+        # Merge options over data so that user edits take effect immediately
+        cfg_data = dict(self.entry.data)
+        cfg_data.update(self.entry.options)
+        
+        provider = cfg_data[CONF_PROVIDER]
+        auth_index = cfg_data.get(CONF_AUTH_INDEX, "0")
+        proxy_token = cfg_data.get(CONF_PROXY_TOKEN, "")
+        proxy_url = cfg_data.get(CONF_PROXY_URL, DEFAULT_PROXY_URL)
 
         req_config = {
             "antigravity": {
@@ -301,15 +305,6 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
             "header": cfg.get("headers", {})
         }
 
-        # Override endpoint target for Gemini
-        if provider == "gemini-cli":
-            project_id = self.entry.data.get(CONF_GEMINI_PROJECT_ID)
-            if not project_id:
-                raise UpdateFailed("Gemini CLI requires a Project ID")
-            
-            target_url = f"https://cloudaicompanion.googleapis.com/v1/projects/{project_id}/locations/global/resources:getQuotaMeters"
-            req_body["url"] = target_url
-
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -345,9 +340,7 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                     
                     # Detect Plan
                     detected_plan = "Free"
-                    if self.entry.data.get(CONF_CUSTOM_PLAN_NAME):
-                        detected_plan = self.entry.data[CONF_CUSTOM_PLAN_NAME]
-                    elif provider == "codex" and raw_body.get("plan_type"):
+                    if provider == "codex" and raw_body.get("plan_type"):
                         detected_plan = raw_body["plan_type"]
                     elif provider == "claude":
                         extra = raw_body.get("extra_usage")
@@ -357,9 +350,10 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                             val = raw_body["organization"]["type"]
                             detected_plan = val[0].upper() + val[1:] if val else "Free"
                             
+                    configured_account = cfg_data.get(CONF_ACCOUNT_NAME)
                     return {
                         "plan": detected_plan,
-                        "email": raw_body.get("email") or result.get("email") or "Unknown Account",
+                        "email": configured_account or raw_body.get("email") or result.get("email") or "Unknown Account",
                         "items": parsed_items,
                         "api_payload": raw_body
                     }
