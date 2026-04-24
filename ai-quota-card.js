@@ -13,6 +13,9 @@ class AIQuotaCard extends HTMLElement {
       throw new Error("You need to define proxy_url, or set backend: true");
     }
     this.config = config;
+    // Reset all cached state whenever config changes
+    this._lastBackendUpdate = null;
+    this.data = { items: [], loading: false, error: null, plan: null };
     if (!this.config.backend) {
       this.fetchQuota();
     }
