@@ -266,7 +266,8 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
         req_config = {
             "antigravity": {
                 "method": "POST",
-                "url": "https://api.github.com/graphql",
+                "url": "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels",
+                "headers": { "User-Agent": "antigravity/1.11.5 windows/amd64" }
             },
             "claude": {
                 "method": "GET",
@@ -275,13 +276,13 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
             },
             "codex": {
                 "method": "GET",
-                "url": "https://api.openai.com/dashboard/billing/info",
+                "url": "https://chatgpt.com/backend-api/wham/usage",
+                "headers": { "User-Agent": "codex_cli_rs/0.76.0 (Debian 13.0.0; x86_64) WindowsTerminal" }
             },
             "gemini-cli": {
                 "method": "POST",
-                "url": "https://cloudaicompanion.googleapis.com/v1/codeRepository:generateBackendQuotaDetails",
+                "url": "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota",
                 "headers": {
-                    "X-Goog-Ide-Id": "VSCode",
                     "Content-Type": "application/json"
                 }
             },
@@ -305,6 +306,9 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
             "url": cfg["url"],
             "header": cfg.get("headers", {})
         }
+
+        if provider == "gemini-cli":
+            req_body["data"] = '{"project": ""}'
 
         try:
             async with aiohttp.ClientSession() as session:
