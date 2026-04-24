@@ -155,17 +155,31 @@ class AIQuotaCard extends HTMLElement {
       addUsage('seven_day_sonnet', '7-day-sonnet limit');
       addUsage('seven_day_opus', '7-day-opus limit');
       
-      let extraUsageDisplay = null;
       const extra = data.extra_usage;
       if (extra && extra.is_enabled) {
-        if (extra.used_credits !== undefined && extra.monthly_limit !== undefined) {
-          const used = (Number(extra.used_credits) / 100).toFixed(2);
-          const total = (Number(extra.monthly_limit) / 100).toFixed(2);
-          extraUsageDisplay = `$${used} / $${total}`;
+        let utilization = 0;
+        if (extra.utilization !== undefined) {
+           utilization = typeof extra.utilization === 'number' ? extra.utilization : parseFloat(extra.utilization);
+        } else if (extra.used_credits !== undefined && extra.monthly_limit !== undefined && extra.monthly_limit > 0) {
+           utilization = (Number(extra.used_credits) / Number(extra.monthly_limit)) * 100;
+        }
+
+        if (!isNaN(utilization)) {
+          let extraUsageDisplay = '';
+          if (extra.used_credits !== undefined && extra.monthly_limit !== undefined) {
+            const used = (Number(extra.used_credits) / 100).toFixed(2);
+            const total = (Number(extra.monthly_limit) / 100).toFixed(2);
+            extraUsageDisplay = `$${used} / $${total}`;
+          }
+          models.push({
+            name: 'Extra Usage',
+            percentage: Math.max(0, Math.round(100 - utilization)),
+            resetTime: extraUsageDisplay
+          });
         }
       }
       
-      return [{ name: 'Claude Quota', models: models, extra_usage: extraUsageDisplay }];
+      return [{ name: 'Claude Quota', models: models }];
     } 
     
 
@@ -502,13 +516,8 @@ class AIQuotaCard extends HTMLElement {
         let pClass = pct > 20 ? 'pct-high' : 'pct-low';
         let bClass = pct > 20 ? 'bg-high' : 'bg-low';
 
-        contentHtml += `<div class="group">`;
-        
-        if (group.extra_usage) {
-           contentHtml += `<div class="plan-info" style="margin-bottom: 12px;">Extra Usage: <strong>${group.extra_usage}</strong></div>`;
-        }
-
         contentHtml += `
+          <div class="group">
             <div class="group-header">
               <div class="group-title">
                 ${group.name}
