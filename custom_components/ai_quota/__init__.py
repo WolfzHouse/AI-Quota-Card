@@ -7,7 +7,6 @@ from pathlib import Path
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.components.frontend import add_extra_js_url
 
 from .const import DOMAIN
 from .coordinator import AIQuotaDataUpdateCoordinator
@@ -21,14 +20,33 @@ _CARD_REGISTERED = False
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Register the Lovelace card JS file as a static resource automatically."""
+    """Register the Lovelace card JS as a static HTTP path on boot."""
     global _CARD_REGISTERED
     if not _CARD_REGISTERED:
         card_path = Path(__file__).parent / "ai-quota-card.js"
         hass.http.register_static_path(_CARD_URL, str(card_path), cache_headers=False)
-        add_extra_js_url(hass, _CARD_URL)
         _CARD_REGISTERED = True
-        _LOGGER.info("AI Quota Card registered at %s", _CARD_URL)
+        _LOGGER.info("AI Quota Card static path registered at %s", _CARD_URL)
+
+        # Register as a Lovelace resource so it's loaded on every dashboard
+        try:
+            from homeassistant.components.lovelace import resources as lovelace_resources  # noqa: PLC0415
+            resource_collection = await lovelace_resources.async_get_resources(hass)
+            existing = [
+                r for r in resource_collection.async_items()
+                if r.get("url") == _CARD_URL
+            ]
+            if not existing:
+                await resource_collection.async_create_item({
+                    "res_type": "module",
+                    "url": _CARD_URL,
+                })
+                _LOGGER.info("AI Quota Card registered as Lovelace resource")
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning(
+                "Could not auto-register Lovelace resource (add manually if needed): %s", err
+            )
+
     return True
 
 

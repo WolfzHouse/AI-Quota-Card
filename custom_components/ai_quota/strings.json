@@ -1,0 +1,38 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add AI Web Quota Integration",
+        "description": "Configure the proxy target, token, and provider parameters.",
+        "data": {
+          "provider": "Provider Name",
+          "auth_index": "Auth Index / File ID",
+          "account_name": "Account Email or Alias (Optional)",
+          "proxy_token": "CLIProxy API Token",
+          "proxy_url": "CLIProxy API URL"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to proxy",
+      "invalid_auth": "Invalid authentication",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "Device is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Edit AI Web Quota Settings",
+        "description": "Update the token, account alias, or proxy URL for this integration.",
+        "data": {
+          "proxy_token": "CLIProxy API Token",
+          "account_name": "Account Email or Alias (Optional)",
+          "proxy_url": "CLIProxy API URL"
+        }
+      }
+    }
+  }
+}
