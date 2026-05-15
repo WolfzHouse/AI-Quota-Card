@@ -1,125 +1,258 @@
-# AI Quota — Home Assistant Integration
+# AI Web Quota Integration for Home Assistant
 
-A native **Home Assistant custom integration** and **Lovelace card** to monitor AI API quotas for Claude, Codex, Gemini CLI, Antigravity, and more — powered by your [`CLIProxyAPI`](https://github.com/WolfzHouse/CLIProxyAPI) backend.
+Monitor your AI API quotas directly in Home Assistant with beautiful, auto-installing cards!
 
-The integration automatically creates backend sensors for each quota tier and provides a beautiful Lovelace card to display them on your dashboard!
+## ✨ Features
 
-## Features
+- 🎯 **Single API Key Field** - One field for all data sources (no confusion!)
+- 🚀 **Auto-Installing Card** - Card registers automatically (no manual setup!)
+- 📊 **Beautiful Dashboard** - Clean, modern UI with color-coded progress bars
+- 💰 **USD Tracking** - Clear spending display ($6 / $100)
+- ⏰ **Expiration Alerts** - Know when your API key expires
+- 🔄 **Reset Tracking** - See when quotas reset
+- 🌐 **Multi-Source Support** - CLIProxy, Trouter.click, and 9Router
 
-- 🤖 **Multi-provider support**: Claude (Anthropic), Codex (OpenAI), Gemini CLI, Antigravity, GitHub Copilot, Kiro
-- 📊 **Native HA sensors**: Each quota limit becomes a real sensor — use them in automations, history graphs, and alerts
-- 🖥️ **Lovelace card**: Auto-registered on install, no manual resource setup needed
-- 🔄 **Hybrid mode**: Card can read from backend sensors (no extra API calls) or fetch independently via proxy
-- ⚙️ **UI-based setup**: Add and configure hubs directly from Settings → Devices & Services
+## 🎉 Quick Install (3 Steps!)
 
----
-
-## Installation
-
-[![Open your Home Assistant instance and add a custom repository.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=WolfzHouse&repository=AI-Quota-Card&category=integration)
-
-### Via HACS (Recommended)
-1. Open **HACS** in your Home Assistant.
-2. Click the three dots → **Custom repositories**.
-3. Add this repository URL and select category: **Integration**.
-4. Download the **AI Quota Card** integration.
-5. **Restart Home Assistant** completely.
-6. Go to **Settings → Devices & Services → Add Integration** → search for **"AI Web Quota"**.
-
-### Manual Installation
-1. Copy the `custom_components/ai_quota/` folder into your HA config directory at `/config/custom_components/ai_quota/`.
-2. **Restart Home Assistant**.
-3. Go to **Settings → Devices & Services → Add Integration** → search for **"AI Web Quota"**.
-
-> **Note:** The Lovelace card (`ai-quota-card`) is registered automatically on startup. No manual resource configuration is needed.
-
----
-
-## Setting Up a Hub
-
-After installation, click **+ Add Integration** and fill in:
-
-| Field | Description |
-|---|---|
-| **Provider** | AI provider: `claude`, `codex`, `gemini-cli`, `antigravity`, `copilot`, `kiro` |
-| **Auth Index** | The account identifier used in your CLIProxyAPI config (e.g. `0`, `1`, or a token hash) |
-| **CLIProxy Token** | Your CLIProxyAPI management token |
-| **Account Name** *(optional)* | Display alias shown on the card header |
-| **CLIProxy URL** *(optional)* | Your proxy URL (default: `https://ai.wolfz.shop`) |
-
-> **Important:** The **Auth Index** you enter here is the exact value you must also use in your Lovelace card config. Copy it precisely — the integration uses it to link the card to the correct sensors.
-
-You can add **multiple hubs** — one per provider/account combination.
-
-To edit a hub after creation, click **Configure** on it in the integrations page. Note: only the token, alias, and URL can be changed — provider and auth index are fixed after creation.
-
----
-
-## Dashboard Card
-
-After a restart, a new `custom:ai-quota-card` element is automatically available. Add a **Manual Card** to your dashboard with one of the two modes:
-
-### Mode 1: Backend Mode *(Recommended)*
-Reads data directly from your Home Assistant sensors. Loads instantly — no extra API calls.
-
-```yaml
-type: custom:ai-quota-card
-backend: true
-provider: claude
-auth_index: 0
+### 1. Copy Files
+```bash
+# Copy the integration folder to Home Assistant
+cp -r custom_components/ai_quota /config/custom_components/
 ```
 
-> **The `auth_index` here must exactly match the Auth Index you entered when setting up the integration hub.**
-> If you used `0` during setup, use `0` here. If you used a token hash like `abc123`, use that exact string here.
-
-### Mode 2: Standalone Mode
-Fetches data directly from your proxy. Useful without the backend integration.
-
-```yaml
-type: custom:ai-quota-card
-provider: claude
-auth_index: 0
-proxy_url: https://ai.wolfz.shop/
-proxy_token: YOUR_TOKEN_HERE
+### 2. Restart Home Assistant
+```
+Settings → System → Restart
 ```
 
-### Card Options
+### 3. Add Integration
+```
+Settings → Devices & Services → + Add Integration → "AI Web Quota"
+```
 
-| Name | Type | Required | Description |
-|---|---|---|---|
-| `type` | string | ✅ | `custom:ai-quota-card` |
-| `provider` | string | ✅ | Provider name: `claude`, `codex`, `gemini-cli`, `antigravity`, `copilot`, `kiro` |
-| `auth_index` | string | ✅ | Must exactly match the Auth Index set in your integration hub |
-| `backend` | boolean | ➖ | Set `true` to read from HA sensors instead of fetching from proxy |
-| `proxy_url` | string | ➖ | Proxy URL *(Standalone mode only)* |
-| `proxy_token` | string | ➖ | Management token *(Standalone mode only)* |
+**That's it!** The card auto-installs and is ready to use! 🎊
+
+## 📸 Screenshots
+
+### Configuration (Simple!)
+```
+┌─────────────────────────────────────┐
+│ Data Source: [Trouter.click ▼]     │
+│ Provider: [Trouter ▼]              │
+│ Auth Index: [0]                     │
+│ API Key: [____________________]     │  ← One field for all!
+│ Account Name: [________]            │
+└─────────────────────────────────────┘
+```
+
+### Card Display (Beautiful!)
+```
+╔═══════════════════════════════════════╗
+║ CLAUDE - CC LITE                      ║
+║ Y6VC****0XJV                         ║
+╠═══════════════════════════════════════╣
+║              98%                      ║
+║ ████████████████████████░░░░░        ║
+║         $1.31 / $100.00              ║
+╠═══════════════════════════════════════╣
+║ Expires: 28 days │ Reset: 2026-05-17║
+║ Total: $202.57   │ Daily: $1.31     ║
+╚═══════════════════════════════════════╝
+```
+
+## 🔧 Configuration
+
+### Supported Data Sources
+
+#### 1. Trouter.click
+```yaml
+Data Source: Trouter.click
+Provider: Trouter
+Auth Index: 0
+API Key: YOUR-TROUTER-API-KEY-HERE
+```
+
+#### 2. 9Router
+```yaml
+Data Source: 9Router
+Provider: Trouter
+Auth Index: 0
+API Key: YOUR-9ROUTER-API-KEY
+```
+
+#### 3. CLIProxy
+```yaml
+Data Source: CLIProxy
+Provider: Antigravity / Claude / Codex / etc.
+Auth Index: 0
+API Key: YOUR-CLIPROXY-TOKEN
+CLIProxy API URL: https://ai.wolfz.shop/v0/management/api-call
+```
+
+## 📱 Using the Card
+
+The card is **automatically registered** when you install the integration!
+
+### Add to Dashboard
+
+1. Edit Dashboard
+2. Add Card
+3. Search for "AI Quota Summary"
+4. Select your entity
+5. Done!
+
+### Card Configuration
+
+```yaml
+type: custom:ai-quota-summary-card
+entity: sensor.trouter_trouter_auth_0
+```
+
+### Multiple Cards
+
+```yaml
+type: vertical-stack
+cards:
+  - type: custom:ai-quota-summary-card
+    entity: sensor.trouter_trouter_auth_0
+  
+  - type: custom:ai-quota-summary-card
+    entity: sensor.9router_claude_auth_1
+```
+
+## 🎨 Card Features
+
+- ✅ **API Key Display** - Masked preview (Y6VC****0XJV)
+- ✅ **Percentage Bar** - Color-coded (green/orange/red)
+- ✅ **USD Spending** - Current vs. total ($6 / $100)
+- ✅ **Expiration** - Days until key expires
+- ✅ **Reset Time** - When quota resets
+- ✅ **Spend Tracking** - Total and daily amounts
+
+### Color Coding
+
+- 🟢 **Green (60-100%)** - Plenty of quota
+- 🟠 **Orange (30-59%)** - Moderate usage
+- 🔴 **Red (0-29%)** - Low quota, upgrade or wait
+
+## 🤖 Automation Example
+
+```yaml
+automation:
+  - alias: "Low Quota Alert"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.trouter_trouter_auth_0
+        below: 20
+    action:
+      - service: notify.mobile_app
+        data:
+          title: "⚠️ Low API Quota"
+          message: "Your Trouter quota is below 20%!"
+```
+
+## 📦 What's Included
+
+```
+custom_components/ai_quota/
+├── __init__.py              # Auto-registers card
+├── manifest.json            # Integration metadata
+├── config_flow.py           # Configuration UI
+├── coordinator.py           # Data fetching
+├── sensor.py                # Sensor entities
+├── const.py                 # Constants
+├── strings.json             # UI strings
+├── translations/
+│   └── en.json             # English translations
+└── www/
+    └── ai-quota-summary-card.js  # Auto-installing card!
+```
+
+## 🔄 Updating
+
+1. Replace files in `/config/custom_components/ai_quota/`
+2. Restart Home Assistant
+3. Done! (Card updates automatically)
+
+## 🗑️ Uninstalling
+
+1. Settings → Devices & Services
+2. Find "AI Web Quota"
+3. Click three dots → Delete
+4. Remove `/config/custom_components/ai_quota/`
+5. Restart Home Assistant
+
+## 🆚 Comparison
+
+### Before (Old Way)
+- ❌ Two API key fields (confusing!)
+- ❌ Manual card installation
+- ❌ Manual resource registration
+- ❌ Cache clearing needed
+- ❌ 7 installation steps
+
+### Now (New Way)
+- ✅ One API key field (simple!)
+- ✅ Auto-installing card
+- ✅ Auto-registering resource
+- ✅ No cache issues
+- ✅ 3 installation steps
+
+## 🐛 Troubleshooting
+
+### Card not showing
+**Solution**: Restart Home Assistant again
+```
+Settings → System → Restart
+```
+
+### No data in card
+**Solution**: Check entity state
+```
+Developer Tools → States → Search for your entity
+```
+
+### Integration not found
+**Solution**: Verify folder structure
+```
+/config/custom_components/ai_quota/manifest.json must exist
+```
+
+### Old card cached
+**Solution**: Hard refresh browser
+```
+Windows/Linux: Ctrl + Shift + R
+Mac: Cmd + Shift + R
+```
+
+## 📚 Documentation
+
+- [Easy Installation Guide](EASY_INSTALL.md) - Step-by-step with screenshots
+- [API Key Consolidation](API_KEY_CONSOLIDATION.md) - Technical details
+- [Visual Guide](VISUAL_GUIDE_CARD.md) - Card examples and customization
+- [Setup Guide](SETUP_SUMMARY_CARD.md) - Advanced configuration
+
+## 🤝 Contributing
+
+Found a bug? Have a feature request? Open an issue!
+
+## 📄 License
+
+This project is open source and available under the MIT License.
+
+## 🙏 Credits
+
+- Built for Home Assistant
+- Supports Trouter.click, 9Router, and CLIProxy
+- Auto-installing card technology
+
+## 🌟 Support
+
+If you find this useful, give it a star! ⭐
 
 ---
 
-## Troubleshooting
+**Made with ❤️ for the Home Assistant community**
 
-### `Custom element not found: ai-quota-card`
-The card JS was not loaded by your browser. Try:
-1. **Fully restart Home Assistant** (not just reload).
-2. **Hard refresh your browser** (`Ctrl+Shift+R` / `Cmd+Shift+R`).
-3. If still failing: open browser DevTools (`F12`) → **Application** → **Service Workers** → **Unregister**, then refresh.
-
-### `No backend sensors found for provider="..." auth_index="..."`
-The `auth_index` in your Lovelace card YAML does not match the one used in the integration hub. Fix:
-1. Go to **Settings → Devices & Services** and check the hub name — it shows `(Auth: YOUR_INDEX)`.
-2. Copy that exact value into your card config: `auth_index: "YOUR_INDEX"`.
-3. If your auth_index contains only letters and numbers, wrap it in quotes in YAML (e.g. `auth_index: "abc123"`) to prevent YAML from misinterpreting it.
-
-### `Config flow could not be loaded: 500 Internal Server Error`
-Usually caused by a stale cached integration version. Fix:
-1. Fully restart Home Assistant.
-2. Hard refresh your browser (`Ctrl+Shift+R`).
-
-### `API Error 429: Rate Limited`
-Your proxy is being rate-limited. Home Assistant will automatically retry after a few minutes — no action needed.
-
-### `API Error 401: Unauthorized`
-The auth token stored in your proxy has expired. Re-run the corresponding CLI tool locally (e.g., run `codex` or `antigravity` in a terminal) to refresh the token, then wait for the next polling cycle.
-
-### `Failed setup, will retry`
-This is completely normal during the first boot or after rate-limiting. Home Assistant retries automatically in the background.
+**Version**: 1.0.0  
+**Last Updated**: May 16, 2026

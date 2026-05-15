@@ -28,7 +28,7 @@ class AIQuotaSummaryCard extends HTMLElement {
     }
 
     const attributes = state.attributes;
-    const apiPayload = attributes.api_payload || ;
+    const apiPayload = attributes.api_payload || {};
     
     // Extract data from API payload
     const keyPreview = apiPayload.key_preview || 'Unknown';
