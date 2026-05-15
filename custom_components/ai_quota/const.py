@@ -17,5 +17,6 @@ PROVIDERS = {
     "codex": "Codex (OpenAI)",
     "gemini-cli": "Gemini CLI",
     "kiro": "Kiro (CodeWhisperer)",
-    "copilot": "GitHub Copilot"
+    "copilot": "GitHub Copilot",
+    "trouter": "Trouter"
 }

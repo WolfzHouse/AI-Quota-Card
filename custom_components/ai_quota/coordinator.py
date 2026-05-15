@@ -257,6 +257,144 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
             
             items.append({"name": f"{title} Quota", "models": models})
 
+        elif provider == "trouter":
+            models = []
+            
+            # Parse quota information
+            quota = data.get("quota") or {}
+            if quota:
+                quota_type = quota.get("type", "duration")
+                
+                if quota_type == "duration":
+                    # Duration-based quota (in seconds)
+                    daily_quota = float(quota.get("daily_quota", 0))
+                    daily_remaining = float(quota.get("daily_remaining", 0))
+                    daily_spent = float(quota.get("daily_spent", 0))
+                    
+                    if daily_quota > 0:
+                        pct = max(0, min(100, round((daily_remaining / daily_quota) * 100)))
+                    else:
+                        pct = 0
+                    
+                    # Convert seconds to hours for display
+                    spent_hours = daily_spent / 3600
+                    total_hours = daily_quota / 3600
+                    
+                    next_reset = quota.get("next_reset_at", "")
+                    if next_reset:
+                        try:
+                            from datetime import datetime
+                            dt = datetime.fromisoformat(next_reset.replace("Z", "+00:00"))
+                            reset_str = dt.isoformat()
+                        except Exception:
+                            reset_str = next_reset
+                    else:
+                        reset_str = ""
+                    
+                    models.append({
+                        "name": "Daily Duration Quota",
+                        "percentage": pct,
+                        "resetTime": f"{spent_hours:.2f}h / {total_hours:.2f}h | Reset: {reset_str}"
+                    })
+                
+                elif quota_type == "count":
+                    # Count-based quota
+                    remaining = float(quota.get("remaining_quota", 0))
+                    # We need to calculate total from remaining + used
+                    # For now, just show remaining
+                    models.append({
+                        "name": "Request Quota",
+                        "percentage": 100 if remaining > 0 else 0,
+                        "resetTime": f"{int(remaining)} remaining"
+                    })
+            
+            # Parse usage statistics
+            usage = data.get("usage") or {}
+            if usage:
+                total_spent = float(usage.get("total_spent", 0))
+                daily_spent = float(usage.get("daily_spent", 0))
+                request_count = usage.get("request_count", 0)
+                daily_request_count = usage.get("daily_request_count", 0)
+                
+                # Total spend
+                models.append({
+                    "name": "Lifetime Spend",
+                    "percentage": 100,  # Informational only
+                    "resetTime": f"${total_spent / 100:.2f}"
+                })
+                
+                # Daily spend
+                models.append({
+                    "name": "Daily Spend",
+                    "percentage": 100,  # Informational only
+                    "resetTime": f"${daily_spent / 100:.2f}"
+                })
+                
+                # Request counts
+                models.append({
+                    "name": "Total Requests",
+                    "percentage": 100,  # Informational only
+                    "resetTime": f"{request_count} total ({daily_request_count} today)"
+                })
+                
+                # Token usage if available
+                input_tokens = usage.get("input_tokens", 0)
+                output_tokens = usage.get("output_tokens", 0)
+                cache_read = usage.get("cache_read_tokens", 0)
+                cache_write = usage.get("cache_write_tokens", 0)
+                
+                if input_tokens or output_tokens:
+                    total_tokens = input_tokens + output_tokens + cache_read + cache_write
+                    models.append({
+                        "name": "Token Usage",
+                        "percentage": 100,  # Informational only
+                        "resetTime": f"{total_tokens:,} tokens (I:{input_tokens:,} O:{output_tokens:,})"
+                    })
+            
+            # Parse API key status
+            status = data.get("status", "unknown")
+            timestamps = data.get("timestamps") or {}
+            
+            if timestamps:
+                expires_at = timestamps.get("expires_at", "")
+                last_used = timestamps.get("last_used_at", "")
+                
+                # Calculate if key is active based on expiration
+                is_active = status == "active"
+                pct = 100 if is_active else 0
+                
+                expire_info = ""
+                if expires_at:
+                    try:
+                        from datetime import datetime
+                        dt = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+                        expire_info = f"Expires: {dt.strftime('%Y-%m-%d %H:%M')}"
+                    except Exception:
+                        expire_info = f"Expires: {expires_at}"
+                
+                models.append({
+                    "name": "API Key Status",
+                    "percentage": pct,
+                    "resetTime": expire_info
+                })
+            
+            # Service type info
+            service_type = data.get("service_type", "")
+            sub_service_name = data.get("sub_service_type_name", "")
+            if service_type or sub_service_name:
+                service_info = f"{service_type.upper()}" if service_type else ""
+                if sub_service_name:
+                    service_info = f"{service_info} - {sub_service_name}" if service_info else sub_service_name
+                
+                models.append({
+                    "name": "Service Type",
+                    "percentage": 100,  # Informational only
+                    "resetTime": service_info
+                })
+            
+            if models:
+                items.append({"name": "Trouter Quota", "models": models})
+
         return items
 
 
@@ -302,6 +440,14 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
             "copilot": {
                 "method": "GET",
                 "url": "https://api.github.com/copilot_internal/billing",
+            },
+            "trouter": {
+                "method": "GET",
+                "url": "https://trouter.click/api/proxy/me?view=dashboard",
+                "headers": {
+                    "Accept": "*/*",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
+                }
             }
         }
 
