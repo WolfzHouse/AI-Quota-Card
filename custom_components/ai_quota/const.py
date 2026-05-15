@@ -7,9 +7,17 @@ CONF_PROVIDER = "provider"
 CONF_AUTH_INDEX = "auth_index"
 CONF_PROXY_TOKEN = "proxy_token"
 CONF_ACCOUNT_NAME = "account_name"
+CONF_TROUTER_API_KEY = "trouter_api_key"
+CONF_DATA_SOURCE = "data_source"
 
 DEFAULT_PROXY_URL = "https://ai.wolfz.shop/v0/management/api-call"
 DEFAULT_SCAN_INTERVAL_MINUTES = 15
+
+DATA_SOURCES = {
+    "cliproxy": "CLIProxy",
+    "trouter": "Trouter.click",
+    "9router": "9Router"
+}
 
 PROVIDERS = {
     "antigravity": "Antigravity",

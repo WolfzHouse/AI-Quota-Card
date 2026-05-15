@@ -3,18 +3,20 @@
     "step": {
       "user": {
         "title": "Add AI Web Quota Integration",
-        "description": "Configure the proxy target, token, and provider parameters.",
+        "description": "Configure the data source, provider, and authentication parameters.",
         "data": {
+          "data_source": "Data Source",
           "provider": "Provider Name",
           "auth_index": "Auth Index / File ID",
           "account_name": "Account Email or Alias (Optional)",
           "proxy_token": "CLIProxy API Token",
+          "trouter_api_key": "Trouter/9Router API Key",
           "proxy_url": "CLIProxy API URL"
         }
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to proxy",
+      "cannot_connect": "Failed to connect to data source",
       "invalid_auth": "Invalid authentication",
       "unknown": "Unexpected error occurred"
     },
@@ -26,9 +28,11 @@
     "step": {
       "init": {
         "title": "Edit AI Web Quota Settings",
-        "description": "Update the token, account alias, or proxy URL for this integration.",
+        "description": "Update the data source, tokens, account alias, or proxy URL for this integration.",
         "data": {
+          "data_source": "Data Source",
           "proxy_token": "CLIProxy API Token",
+          "trouter_api_key": "Trouter/9Router API Key",
           "account_name": "Account Email or Alias (Optional)",
           "proxy_url": "CLIProxy API URL"
         }

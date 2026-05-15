@@ -20,6 +20,8 @@ from .const import (
     CONF_AUTH_INDEX,
     CONF_PROXY_TOKEN,
     CONF_ACCOUNT_NAME,
+    CONF_TROUTER_API_KEY,
+    CONF_DATA_SOURCE,
     DEFAULT_PROXY_URL,
     DEFAULT_SCAN_INTERVAL_MINUTES
 )
@@ -409,7 +411,101 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
         auth_index = cfg_data.get(CONF_AUTH_INDEX, "0")
         proxy_token = cfg_data.get(CONF_PROXY_TOKEN, "")
         proxy_url = cfg_data.get(CONF_PROXY_URL, DEFAULT_PROXY_URL)
+        trouter_api_key = cfg_data.get(CONF_TROUTER_API_KEY, "")
+        data_source = cfg_data.get(CONF_DATA_SOURCE, "cliproxy")
 
+        # Handle Trouter.click data source - direct API call
+        if data_source == "trouter":
+            if not trouter_api_key:
+                raise UpdateFailed("Trouter API key is required for Trouter.click data source")
+            
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        "https://trouter.click/api/proxy/me?view=dashboard",
+                        headers={
+                            "Authorization": f"Bearer {trouter_api_key}",
+                            "Accept": "*/*",
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                        },
+                        timeout=30
+                    ) as response:
+                        if not response.ok:
+                            text = await response.text()
+                            raise UpdateFailed(f"Trouter API error {response.status}: {text[:200]}")
+                        
+                        raw_body = await response.json()
+                        
+                        _LOGGER.warning("[AI Quota DEBUG] Trouter.click | Keys: %s | Body: %s",
+                                        list(raw_body.keys()), json.dumps(raw_body)[:800])
+                        
+                        parsed_items = self._parse_provider_data(provider, raw_body)
+                        
+                        # Extract account info
+                        service_name = raw_body.get("sub_service_type_name", "Unknown")
+                        key_preview = raw_body.get("key_preview", "Unknown")
+                        
+                        configured_account = cfg_data.get(CONF_ACCOUNT_NAME)
+                        return {
+                            "plan": service_name,
+                            "email": configured_account or key_preview,
+                            "items": parsed_items,
+                            "api_payload": raw_body
+                        }
+            except UpdateFailed:
+                raise
+            except Exception as err:
+                import traceback  # noqa: PLC0415
+                _LOGGER.error("[AI Quota CRASH] Trouter.click\n%s", traceback.format_exc())
+                raise UpdateFailed(f"Error communicating with Trouter API: {err}")
+
+        # Handle 9Router data source - direct API call
+        elif data_source == "9router":
+            if not trouter_api_key:
+                raise UpdateFailed("API key is required for 9Router data source")
+            
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        "https://9router.com/api/proxy/me?view=dashboard",
+                        headers={
+                            "Authorization": f"Bearer {trouter_api_key}",
+                            "Accept": "*/*",
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                        },
+                        timeout=30
+                    ) as response:
+                        if not response.ok:
+                            text = await response.text()
+                            raise UpdateFailed(f"9Router API error {response.status}: {text[:200]}")
+                        
+                        raw_body = await response.json()
+                        
+                        _LOGGER.warning("[AI Quota DEBUG] 9Router | Keys: %s | Body: %s",
+                                        list(raw_body.keys()), json.dumps(raw_body)[:800])
+                        
+                        parsed_items = self._parse_provider_data(provider, raw_body)
+                        
+                        # Extract account info
+                        service_name = raw_body.get("sub_service_type_name", "Unknown")
+                        key_preview = raw_body.get("key_preview", "Unknown")
+                        
+                        configured_account = cfg_data.get(CONF_ACCOUNT_NAME)
+                        return {
+                            "plan": service_name,
+                            "email": configured_account or key_preview,
+                            "items": parsed_items,
+                            "api_payload": raw_body
+                        }
+            except UpdateFailed:
+                raise
+            except Exception as err:
+                import traceback  # noqa: PLC0415
+                _LOGGER.error("[AI Quota CRASH] 9Router\n%s", traceback.format_exc())
+                raise UpdateFailed(f"Error communicating with 9Router API: {err}")
+
+        # Handle CLIProxy data source - proxy-based collection
+        # This is the original method for all providers through CLIProxyAPI
         req_config = {
             "antigravity": {
                 "method": "POST",

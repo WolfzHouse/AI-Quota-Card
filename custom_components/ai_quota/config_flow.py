@@ -16,11 +16,20 @@ from .const import (
     CONF_AUTH_INDEX,
     CONF_PROXY_TOKEN,
     CONF_ACCOUNT_NAME,
+    CONF_TROUTER_API_KEY,
+    CONF_DATA_SOURCE,
     DEFAULT_PROXY_URL,
+    DATA_SOURCES,
     PROVIDERS
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# Dropdown options for the data source selection
+DATA_SOURCE_OPTIONS = [
+    selector.SelectOptionDict(value=key, label=name)
+    for key, name in DATA_SOURCES.items()
+]
 
 # Dropdown options for the provider selection
 PROVIDER_OPTIONS = [
@@ -30,6 +39,12 @@ PROVIDER_OPTIONS = [
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
+        vol.Required(CONF_DATA_SOURCE, default="cliproxy"): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=DATA_SOURCE_OPTIONS,
+                mode=selector.SelectSelectorMode.DROPDOWN,
+            )
+        ),
         vol.Required(CONF_PROVIDER): selector.SelectSelector(
             selector.SelectSelectorConfig(
                 options=PROVIDER_OPTIONS,
@@ -37,7 +52,8 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
             )
         ),
         vol.Required(CONF_AUTH_INDEX, default="0"): str,
-        vol.Required(CONF_PROXY_TOKEN): str,
+        vol.Optional(CONF_PROXY_TOKEN, default=""): str,
+        vol.Optional(CONF_TROUTER_API_KEY, default=""): str,
         vol.Optional(CONF_ACCOUNT_NAME, default=""): str,
         vol.Optional(CONF_PROXY_URL, default=DEFAULT_PROXY_URL): str,
     }
@@ -58,7 +74,9 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             # We can do basic validation here if needed
             # For now, just create the entry
-            title = f"{PROVIDERS.get(user_input[CONF_PROVIDER], user_input[CONF_PROVIDER])} (Auth: {user_input[CONF_AUTH_INDEX]})"
+            data_source = DATA_SOURCES.get(user_input[CONF_DATA_SOURCE], user_input[CONF_DATA_SOURCE])
+            provider = PROVIDERS.get(user_input[CONF_PROVIDER], user_input[CONF_PROVIDER])
+            title = f"{data_source} - {provider} (Auth: {user_input[CONF_AUTH_INDEX]})"
             return self.async_create_entry(title=title, data=user_input)
 
         return self.async_show_form(
@@ -91,7 +109,14 @@ class AIQuotaOptionsFlowHandler(config_entries.OptionsFlow):
 
         schema = vol.Schema(
             {
+                vol.Optional(CONF_DATA_SOURCE, default=str(options.get(CONF_DATA_SOURCE) or "cliproxy")): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=DATA_SOURCE_OPTIONS,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
                 vol.Optional(CONF_PROXY_TOKEN, default=str(options.get(CONF_PROXY_TOKEN) or "")): str,
+                vol.Optional(CONF_TROUTER_API_KEY, default=str(options.get(CONF_TROUTER_API_KEY) or "")): str,
                 vol.Optional(CONF_ACCOUNT_NAME, default=str(options.get(CONF_ACCOUNT_NAME) or "")): str,
                 vol.Optional(CONF_PROXY_URL, default=str(options.get(CONF_PROXY_URL) or DEFAULT_PROXY_URL)): str,
             }
