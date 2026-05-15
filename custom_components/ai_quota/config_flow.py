@@ -14,9 +14,8 @@ from .const import (
     CONF_PROXY_URL,
     CONF_PROVIDER,
     CONF_AUTH_INDEX,
-    CONF_PROXY_TOKEN,
+    CONF_API_KEY,
     CONF_ACCOUNT_NAME,
-    CONF_TROUTER_API_KEY,
     CONF_DATA_SOURCE,
     DEFAULT_PROXY_URL,
     DATA_SOURCES,
@@ -52,8 +51,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
             )
         ),
         vol.Required(CONF_AUTH_INDEX, default="0"): str,
-        vol.Optional(CONF_PROXY_TOKEN, default=""): str,
-        vol.Optional(CONF_TROUTER_API_KEY, default=""): str,
+        vol.Optional(CONF_API_KEY, default=""): str,
         vol.Optional(CONF_ACCOUNT_NAME, default=""): str,
         vol.Optional(CONF_PROXY_URL, default=DEFAULT_PROXY_URL): str,
     }
@@ -115,8 +113,7 @@ class AIQuotaOptionsFlowHandler(config_entries.OptionsFlow):
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
-                vol.Optional(CONF_PROXY_TOKEN, default=str(options.get(CONF_PROXY_TOKEN) or "")): str,
-                vol.Optional(CONF_TROUTER_API_KEY, default=str(options.get(CONF_TROUTER_API_KEY) or "")): str,
+                vol.Optional(CONF_API_KEY, default=str(options.get(CONF_API_KEY) or "")): str,
                 vol.Optional(CONF_ACCOUNT_NAME, default=str(options.get(CONF_ACCOUNT_NAME) or "")): str,
                 vol.Optional(CONF_PROXY_URL, default=str(options.get(CONF_PROXY_URL) or DEFAULT_PROXY_URL)): str,
             }

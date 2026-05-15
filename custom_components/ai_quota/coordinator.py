@@ -18,9 +18,8 @@ from .const import (
     CONF_PROXY_URL,
     CONF_PROVIDER,
     CONF_AUTH_INDEX,
-    CONF_PROXY_TOKEN,
+    CONF_API_KEY,
     CONF_ACCOUNT_NAME,
-    CONF_TROUTER_API_KEY,
     CONF_DATA_SOURCE,
     DEFAULT_PROXY_URL,
     DEFAULT_SCAN_INTERVAL_MINUTES
@@ -409,22 +408,21 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
         
         provider = cfg_data[CONF_PROVIDER]
         auth_index = cfg_data.get(CONF_AUTH_INDEX, "0")
-        proxy_token = cfg_data.get(CONF_PROXY_TOKEN, "")
+        api_key = cfg_data.get(CONF_API_KEY, "")
         proxy_url = cfg_data.get(CONF_PROXY_URL, DEFAULT_PROXY_URL)
-        trouter_api_key = cfg_data.get(CONF_TROUTER_API_KEY, "")
         data_source = cfg_data.get(CONF_DATA_SOURCE, "cliproxy")
 
         # Handle Trouter.click data source - direct API call
         if data_source == "trouter":
-            if not trouter_api_key:
-                raise UpdateFailed("Trouter API key is required for Trouter.click data source")
+            if not api_key:
+                raise UpdateFailed("API key is required for Trouter.click data source")
             
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(
                         "https://trouter.click/api/proxy/me?view=dashboard",
                         headers={
-                            "Authorization": f"Bearer {trouter_api_key}",
+                            "Authorization": f"Bearer {api_key}",
                             "Accept": "*/*",
                             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                         },
@@ -461,7 +459,7 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Handle 9Router data source - direct API call
         elif data_source == "9router":
-            if not trouter_api_key:
+            if not api_key:
                 raise UpdateFailed("API key is required for 9Router data source")
             
             try:
@@ -469,7 +467,7 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                     async with session.get(
                         "https://9router.com/api/proxy/me?view=dashboard",
                         headers={
-                            "Authorization": f"Bearer {trouter_api_key}",
+                            "Authorization": f"Bearer {api_key}",
                             "Accept": "*/*",
                             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                         },
@@ -573,7 +571,7 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                     proxy_url,
                     json=req_body,
                     headers={
-                        "Authorization": f"Bearer {proxy_token}",
+                        "Authorization": f"Bearer {api_key}",
                         "Content-Type": "application/json"
                     },
                     timeout=30

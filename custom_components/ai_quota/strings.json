@@ -9,8 +9,7 @@
           "provider": "Provider Name",
           "auth_index": "Auth Index / File ID",
           "account_name": "Account Email or Alias (Optional)",
-          "proxy_token": "CLIProxy API Token",
-          "trouter_api_key": "Trouter/9Router API Key",
+          "api_key": "API Key",
           "proxy_url": "CLIProxy API URL"
         }
       }
@@ -28,11 +27,10 @@
     "step": {
       "init": {
         "title": "Edit AI Web Quota Settings",
-        "description": "Update the data source, tokens, account alias, or proxy URL for this integration.",
+        "description": "Update the data source, API key, account alias, or proxy URL for this integration.",
         "data": {
           "data_source": "Data Source",
-          "proxy_token": "CLIProxy API Token",
-          "trouter_api_key": "Trouter/9Router API Key",
+          "api_key": "API Key",
           "account_name": "Account Email or Alias (Optional)",
           "proxy_url": "CLIProxy API URL"
         }
