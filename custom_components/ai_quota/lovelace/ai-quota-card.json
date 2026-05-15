@@ -1,0 +1,9 @@
+{
+  "name": "AI Quota Card",
+  "content_in_root": false,
+  "filename": "ai-quota-card.js",
+  "config": {
+    "type": "custom:ai-quota-summary-card",
+    "entity": "sensor.trouter_trouter_auth_0"
+  }
+}

@@ -19,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
-_CARD_URL = f"/{DOMAIN}/ai-quota-card.js"
+_CARD_URL = f"/{DOMAIN}/ai-quota-summary-card.js"
 _CARD_REGISTERED = False
 
 
@@ -47,7 +47,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Register the Lovelace card JS on every HA boot."""
     global _CARD_REGISTERED
     if not _CARD_REGISTERED:
-        card_path = Path(__file__).parent / "ai-quota-card.js"
+        card_path = Path(__file__).parent / "www" / "ai-quota-summary-card.js"
         await hass.http.async_register_static_paths([
             StaticPathConfig(_CARD_URL, str(card_path), cache_headers=False)
         ])
@@ -56,7 +56,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         # Write to persistent storage so it survives HA restarts as a proper resource
         await _ensure_lovelace_resource(hass, _CARD_URL)
         _CARD_REGISTERED = True
-        _LOGGER.info("AI Quota Card fully registered at %s", _CARD_URL)
+        _LOGGER.info("AI Quota Summary Card fully registered at %s", _CARD_URL)
 
     return True
 
