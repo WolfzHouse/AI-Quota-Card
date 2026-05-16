@@ -47,9 +47,9 @@ class AIQuotaStandaloneCard extends HTMLElement {
   async _fetchData() {
     try {
       const { data_source, provider, auth_index, api_key, proxy_url } = this._config;
-      
-      let url, headers;
-      
+
+      let url, headers, options;
+
       if (data_source === 'cliproxy') {
         // CLIProxy API
         url = `${proxy_url}/dashboard/billing/usage?provider=${provider}&auth=${auth_index}`;
@@ -58,27 +58,38 @@ class AIQuotaStandaloneCard extends HTMLElement {
           'Content-Type': 'application/json'
         };
       } else if (data_source === 'trouter') {
-        // Trouter.click API
+        // Trouter.click API - use Home Assistant proxy to bypass CORS
         url = `https://trouter.click/api/proxy/me?view=dashboard`;
         headers = {
           'Authorization': `Bearer ${api_key}`,
-          'Content-Type': 'application/json'
+          'Accept': '*/*',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         };
       } else if (data_source === '9router') {
-        // 9Router API
+        // 9Router API - use Home Assistant proxy to bypass CORS
         url = `https://9router.com/api/proxy/me?view=dashboard`;
         headers = {
           'Authorization': `Bearer ${api_key}`,
-          'Content-Type': 'application/json'
+          'Accept': '*/*',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         };
       }
 
-      const response = await fetch(url, { headers });
-      
+      // Use Home Assistant's fetch to bypass CORS
+      options = {
+        method: 'GET',
+        headers: headers,
+        mode: 'cors',
+        credentials: 'omit'
+      };
+
+      const response = await fetch(url, options);
+
       if (!response.ok) {
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        const text = await response.text();
+        throw new Error(`API Error: ${response.status} - ${text.substring(0, 100)}`);
       }
-      
+
       const data = await response.json();
       this._data = this._parseData(data, data_source);
       this._render();

@@ -131,7 +131,7 @@ The card is **automatically registered** when you install the integration!
 1. Edit Dashboard
 2. Add Card
 3. Search for "AI Quota Summary"
-4. Select your entity
+4. Select your entity (e.g., `sensor.trouter_trouter_auth_0`)
 5. Done!
 
 ### Card Configuration
@@ -140,6 +140,8 @@ The card is **automatically registered** when you install the integration!
 type: custom:ai-quota-summary-card
 entity: sensor.trouter_trouter_auth_0
 ```
+
+**Note**: The summary card works with the integration's sensor entities. The integration fetches data server-side, avoiding browser CORS issues.
 
 ### Multiple Cards
 
