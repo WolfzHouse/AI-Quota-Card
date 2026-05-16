@@ -59,14 +59,14 @@ class AIQuotaStandaloneCard extends HTMLElement {
         };
       } else if (data_source === 'trouter') {
         // Trouter.click API
-        url = `https://api.trouter.click/quota/${provider}/${auth_index}`;
+        url = `https://trouter.click/api/proxy/me?view=dashboard`;
         headers = {
           'Authorization': `Bearer ${api_key}`,
           'Content-Type': 'application/json'
         };
       } else if (data_source === '9router') {
         // 9Router API
-        url = `https://api.9router.com/quota/${provider}/${auth_index}`;
+        url = `https://9router.com/api/proxy/me?view=dashboard`;
         headers = {
           'Authorization': `Bearer ${api_key}`,
           'Content-Type': 'application/json'
@@ -111,15 +111,45 @@ class AIQuotaStandaloneCard extends HTMLElement {
         parsed.reset_at = data.reset_time ? new Date(data.reset_time * 1000) : null;
         parsed.daily_spent = data.daily_cost || 0;
         parsed.total_spent = data.total_usage || 0;
-      } else {
+      } else if (dataSource === 'trouter' || dataSource === '9router') {
         // Trouter/9Router format
-        parsed.used = data.used || 0;
-        parsed.total = data.total || data.limit || 100;
-        parsed.percentage = data.percentage || (parsed.total > 0 ? (parsed.used / parsed.total) * 100 : 0);
-        parsed.expires_at = data.expires_at ? new Date(data.expires_at) : null;
-        parsed.reset_at = data.reset_at ? new Date(data.reset_at) : null;
-        parsed.daily_spent = data.daily_spent || 0;
-        parsed.total_spent = data.total_spent || parsed.used;
+        const quota = data.quota || {};
+        const usage = data.usage || {};
+        const timestamps = data.timestamps || {};
+
+        if (quota.type === 'duration') {
+          // Duration-based quota (in seconds)
+          const dailyQuota = parseFloat(quota.daily_quota || 0);
+          const dailyRemaining = parseFloat(quota.daily_remaining || 0);
+          const dailySpent = parseFloat(quota.daily_spent || 0);
+
+          parsed.total = dailyQuota / 3600; // Convert to hours
+          parsed.used = dailySpent / 3600;
+          parsed.percentage = dailyQuota > 0 ? (dailyRemaining / dailyQuota) * 100 : 0;
+          parsed.daily_spent = dailySpent / 3600;
+          parsed.total_spent = parsed.used;
+          parsed.currency = 'hours';
+          parsed.reset_at = quota.next_reset_at ? new Date(quota.next_reset_at) : null;
+        } else if (quota.type === 'usd') {
+          // USD-based quota
+          const totalQuota = parseFloat(quota.total_quota || 0);
+          const totalRemaining = parseFloat(quota.total_remaining || 0);
+          const totalSpent = parseFloat(quota.total_spent || 0);
+          const dailySpent = parseFloat(quota.daily_spent || 0);
+
+          parsed.total = totalQuota;
+          parsed.used = totalSpent;
+          parsed.percentage = totalQuota > 0 ? (totalRemaining / totalQuota) * 100 : 0;
+          parsed.daily_spent = dailySpent;
+          parsed.total_spent = totalSpent;
+          parsed.currency = 'USD';
+          parsed.reset_at = quota.next_reset_at ? new Date(quota.next_reset_at) : null;
+        }
+
+        // Parse timestamps
+        if (timestamps.expires_at) {
+          parsed.expires_at = new Date(timestamps.expires_at);
+        }
       }
     } catch (error) {
       console.error('Error parsing data:', error);
@@ -293,7 +323,10 @@ class AIQuotaStandaloneCard extends HTMLElement {
               </div>
               <div class="usage-info">
                 <div class="usage-amount">
-                  $${data.used.toFixed(2)} / $${data.total.toFixed(2)}
+                  ${data.currency === 'hours'
+                    ? `${data.used.toFixed(2)}h / ${data.total.toFixed(2)}h`
+                    : `$${data.used.toFixed(2)} / $${data.total.toFixed(2)}`
+                  }
                 </div>
                 <div class="usage-label">Quota Usage</div>
               </div>
@@ -311,11 +344,17 @@ class AIQuotaStandaloneCard extends HTMLElement {
             </div>
             <div class="info-item">
               <div class="info-label">Daily Spent</div>
-              <div class="info-value">$${data.daily_spent.toFixed(2)}</div>
+              <div class="info-value">${data.currency === 'hours'
+                ? `${data.daily_spent.toFixed(2)}h`
+                : `$${data.daily_spent.toFixed(2)}`
+              }</div>
             </div>
             <div class="info-item">
               <div class="info-label">Total Spent</div>
-              <div class="info-value">$${data.total_spent.toFixed(2)}</div>
+              <div class="info-value">${data.currency === 'hours'
+                ? `${data.total_spent.toFixed(2)}h`
+                : `$${data.total_spent.toFixed(2)}`
+              }</div>
             </div>
           </div>
         </div>
