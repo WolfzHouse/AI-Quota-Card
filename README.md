@@ -12,26 +12,58 @@ Monitor your AI API quotas directly in Home Assistant with beautiful, auto-insta
 - 🔄 **Reset Tracking** - See when quotas reset
 - 🌐 **Multi-Source Support** - CLIProxy, Trouter.click, and 9Router
 
-## 🎉 Quick Install (3 Steps!)
+## 🎉 One-Click Install via HACS (Recommended)
 
-### 1. Copy Files
-```bash
-# Copy the integration folder to Home Assistant
-cp -r custom_components/ai_quota /config/custom_components/
+### Prerequisites
+1. Install [HACS](https://hacs.xyz/docs/setup/download) if you haven't already
+
+### Installation Steps
+
+1. **Add Custom Repository**:
+   - Open HACS in Home Assistant
+   - Click the three dots (⋮) in the top right
+   - Select "Custom repositories"
+   - Add this repository URL: `https://github.com/WolfzHouse/AI-Quota-Card`
+   - Category: Integration
+   - Click "Add"
+
+2. **Install the Integration**:
+   - In HACS, search for "AI Quota Integration"
+   - Click "Download"
+   - Restart Home Assistant (twice for cards to load!)
+
+3. **Configure**:
+   - Go to Settings → Devices & Services
+   - Click "+ Add Integration"
+   - Search "AI Web Quota"
+   - Enter your API key
+
+**That's it!** The cards are automatically available in your dashboard.
+
+## 📦 Manual Install (Alternative)
+
+If you don't use HACS:
+
+## 📦 Manual Install (Alternative)
+
+If you don't use HACS:
+
+### 1. Download
+Download the latest release from [GitHub Releases](https://github.com/WolfzHouse/AI-Quota-Card/releases)
+
+### 2. Install
+Extract and copy the `custom_components/ai_quota` folder to your Home Assistant:
+```
+custom_components/ai_quota → /config/custom_components/ai_quota
 ```
 
-### 2. Restart Home Assistant
-```
-Settings → System → Restart (do this TWICE!)
-```
-**Important**: Restart twice for cards to load properly!
+### 3. Restart
+Restart Home Assistant **twice** (Settings → System → Restart)
 
-### 3. Add Integration
-```
+### 4. Configure
 Settings → Devices & Services → + Add Integration → "AI Web Quota"
-```
 
-**That's it!** The card auto-installs and is ready to use! 🎊
+**That's it!** No manual file copying, no resource registration needed.
 
 ## 📸 Screenshots
 

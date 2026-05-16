@@ -1,17 +1,69 @@
-# 🎉 Easy Installation Guide - AI Quota Integration with Auto-Card
+# 🎉 Easy Installation Guide - AI Quota Integration
 
 ## What's New?
 
-The card now **auto-installs** when you install the integration! No manual resource registration needed!
+The integration now **auto-installs via HACS**! One-click installation with no manual file copying!
 
-## Installation Steps
+## Installation Methods
 
-### Step 1: Copy Integration Files
+### Method 1: HACS (Recommended) ⭐
 
-Copy the entire `custom_components/ai_quota` folder to your Home Assistant:
+**Step 1: Add Custom Repository**
+
+1. Open **HACS** in Home Assistant
+2. Click the **three dots (⋮)** in the top right
+3. Select **"Custom repositories"**
+4. Add repository:
+   ```
+   URL: https://github.com/WolfzHouse/AI-Quota-Card
+   Category: Integration
+   ```
+5. Click **"Add"**
+
+**Step 2: Install Integration**
+
+1. In HACS, search for **"AI Quota Integration"**
+2. Click **"Download"**
+3. Restart Home Assistant **twice**
+   - Settings → System → Restart
+   - Wait for restart
+   - Settings → System → Restart again
+
+**Step 3: Configure Integration**
+
+1. Go to **Settings** → **Devices & Services**
+2. Click **+ Add Integration** (bottom right)
+3. Search for **"AI Web Quota"**
+4. Fill in the form:
+   ```
+   Data Source: [Trouter.click ▼]
+   Provider Name: [Trouter ▼]
+   Auth Index: 0
+   API Key: YOUR-TROUTER-API-KEY-HERE
+   Account Name: My Account (optional)
+   ```
+5. Click **Submit**
+
+**That's it!** 🎉 No manual copying, no resource registration!
+
+---
+
+### Method 2: Manual Installation (If you don't use HACS)
+
+---
+
+### Method 2: Manual Installation (If you don't use HACS)
+
+**Step 1: Download**
+
+Download the latest release from [GitHub Releases](https://github.com/WolfzHouse/AI-Quota-Card/releases)
+
+**Step 2: Copy Integration Files**
+
+Extract and copy the entire `custom_components/ai_quota` folder to your Home Assistant:
 
 ```
-From: d:\HASS\AI Quota\AI Quota Card\custom_components\ai_quota
+From: custom_components/ai_quota
 To:   /config/custom_components/ai_quota
 ```
 
