@@ -70,8 +70,14 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            # We can do basic validation here if needed
-            # For now, just create the entry
+            # Generate a unique_id based on provider, auth_index, and data_source
+            unique_id = f"{user_input[CONF_DATA_SOURCE]}_{user_input[CONF_PROVIDER]}_{user_input[CONF_AUTH_INDEX]}"
+            
+            # Set the unique_id to prevent duplicates
+            await self.async_set_unique_id(unique_id)
+            self._abort_if_unique_id_configured()
+            
+            # Create the entry title
             data_source = DATA_SOURCES.get(user_input[CONF_DATA_SOURCE], user_input[CONF_DATA_SOURCE])
             provider = PROVIDERS.get(user_input[CONF_PROVIDER], user_input[CONF_PROVIDER])
             title = f"{data_source} - {provider} (Auth: {user_input[CONF_AUTH_INDEX]})"

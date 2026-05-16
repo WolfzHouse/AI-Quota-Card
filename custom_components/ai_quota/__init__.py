@@ -19,8 +19,9 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
-_SUMMARY_CARD_URL = f"/{DOMAIN}/ai-quota-summary-card.js"
-_STANDALONE_CARD_URL = f"/{DOMAIN}/ai-quota-standalone-card.js"
+_CARD_VERSION = "1.0.1"
+_SUMMARY_CARD_URL = f"/{DOMAIN}/ai-quota-summary-card.js?v={_CARD_VERSION}"
+_STANDALONE_CARD_URL = f"/{DOMAIN}/ai-quota-standalone-card.js?v={_CARD_VERSION}"
 _CARDS_REGISTERED = False
 
 
