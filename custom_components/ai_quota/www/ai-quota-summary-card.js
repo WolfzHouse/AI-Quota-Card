@@ -46,7 +46,7 @@ class AIQuotaSummaryCard extends HTMLElement {
     
     // Try to get percentage from state first (main sensor value)
     const stateValue = parseFloat(state.state);
-    if (!isNaN(stateValue)) {
+    if (!isNaN(stateValue) && stateValue > 0) {
       percentage = Math.round(stateValue);
     }
     
@@ -61,33 +61,48 @@ class AIQuotaSummaryCard extends HTMLElement {
       const dailyRemaining = parseFloat(quota.daily_remaining || 0);
       const dailySpentVal = parseFloat(quota.daily_spent || 0);
 
-      if (dailyQuota > 0 && percentage === 0) {
-        percentage = Math.round((dailyRemaining / dailyQuota) * 100);
+      if (dailyQuota > 0) {
+        if (percentage === 0) {
+          percentage = Math.round((dailyRemaining / dailyQuota) * 100);
+        }
+        
+        // Duration is in seconds, convert to hours
+        const usedHours = (dailySpentVal / 3600).toFixed(2);
+        const totalHours = (dailyQuota / 3600).toFixed(2);
+        quotaDisplay = `${usedHours}h / ${totalHours}h`;
       }
-      
-      // Duration is in seconds, convert to hours
-      const usedHours = (dailySpentVal / 3600).toFixed(2);
-      const totalHours = (dailyQuota / 3600).toFixed(2);
-      quotaDisplay = `${usedHours}h / ${totalHours}h`;
       
     } else if (quota.type === 'usd') {
       const totalQuota = parseFloat(quota.total_quota || 0);
       const totalRemaining = parseFloat(quota.total_remaining || 0);
       const totalSpentQuota = parseFloat(quota.total_spent || 0);
 
-      if (totalQuota > 0 && percentage === 0) {
-        percentage = Math.round((totalRemaining / totalQuota) * 100);
+      if (totalQuota > 0) {
+        if (percentage === 0) {
+          percentage = Math.round((totalRemaining / totalQuota) * 100);
+        }
+        
+        const usedAmount = (totalSpentQuota / 100).toFixed(2);
+        const totalAmount = (totalQuota / 100).toFixed(2);
+        quotaDisplay = `$${usedAmount} / $${totalAmount}`;
       }
-      
-      const usedAmount = (totalSpentQuota / 100).toFixed(2);
-      const totalAmount = (totalQuota / 100).toFixed(2);
-      quotaDisplay = `$${usedAmount} / $${totalAmount}`;
       
     } else if (quota.type === 'count') {
       const remaining = parseFloat(quota.remaining_quota || 0);
       quotaDisplay = `${remaining} requests remaining`;
-      if (percentage === 0) {
-        percentage = remaining > 0 ? 100 : 0;
+      if (percentage === 0 && remaining > 0) {
+        percentage = 100;
+      }
+    }
+    
+    // If still no percentage, try to extract from groups (last resort)
+    if (percentage === 0 && groups.length > 0) {
+      const firstGroup = groups[0];
+      if (firstGroup.models && firstGroup.models.length > 0) {
+        const firstModel = firstGroup.models[0];
+        if (firstModel.percentage !== undefined && firstModel.percentage !== null) {
+          percentage = Math.round(firstModel.percentage);
+        }
       }
     }
     
