@@ -48,11 +48,24 @@ class AIQuotaSummaryCard extends HTMLElement {
       const dailyQuota = parseFloat(quota.daily_quota || 0);
       const dailyRemaining = parseFloat(quota.daily_remaining || 0);
       const dailySpent = parseFloat(quota.daily_spent || 0);
-      
+
       if (dailyQuota > 0) {
         percentage = Math.round((dailyRemaining / dailyQuota) * 100);
-        usedAmount = dailySpent / 100; // Convert cents to dollars
+        // Duration is in seconds, convert to dollars (cents)
+        usedAmount = dailySpent / 100;
         totalAmount = dailyQuota / 100;
+        quotaDisplay = `$${usedAmount.toFixed(2)} / $${totalAmount.toFixed(2)}`;
+      }
+    } else if (quota.type === 'usd') {
+      const totalQuota = parseFloat(quota.total_quota || 0);
+      const totalRemaining = parseFloat(quota.total_remaining || 0);
+      const totalSpentQuota = parseFloat(quota.total_spent || 0);
+
+      if (totalQuota > 0) {
+        percentage = Math.round((totalRemaining / totalQuota) * 100);
+        usedAmount = totalSpentQuota / 100;
+        totalAmount = totalQuota / 100;
+        quotaDisplay = `$${usedAmount.toFixed(2)} / $${totalAmount.toFixed(2)}`;
       }
     } else if (quota.type === 'count') {
       const remaining = parseFloat(quota.remaining_quota || 0);
@@ -80,9 +93,21 @@ class AIQuotaSummaryCard extends HTMLElement {
     // Get reset time
     const nextReset = quota.next_reset_at || '';
     let resetDisplay = '';
+    let resetTimeRemaining = '';
     if (nextReset) {
       try {
         const resetDate = new Date(nextReset);
+        const now = new Date();
+        const diffMs = resetDate - now;
+
+        if (diffMs > 0) {
+          const hours = Math.floor(diffMs / (1000 * 60 * 60));
+          const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+          resetTimeRemaining = `${hours}h ${minutes}m`;
+        } else {
+          resetTimeRemaining = 'Resetting soon';
+        }
+
         resetDisplay = resetDate.toLocaleString();
       } catch (e) {
         resetDisplay = nextReset;
@@ -188,13 +213,9 @@ class AIQuotaSummaryCard extends HTMLElement {
           <div class="progress-bar">
             <div class="progress-fill" style="width: ${percentage}%"></div>
           </div>
-          ${quota.type === 'duration' ? `
-            <div class="usage-display">$${dailySpent} / $${totalAmount.toFixed(2)}</div>
-          ` : `
-            <div class="usage-display">${quotaDisplay}</div>
-          `}
+          <div class="usage-display">${quotaDisplay}</div>
         </div>
-        
+
         <div class="quota-stats">
           ${expiresDisplay ? `
             <div class="stat-item">
@@ -202,10 +223,10 @@ class AIQuotaSummaryCard extends HTMLElement {
               <div class="stat-value">${expiresDisplay}</div>
             </div>
           ` : ''}
-          ${resetDisplay ? `
+          ${resetTimeRemaining ? `
             <div class="stat-item">
-              <div class="stat-label">Reset at</div>
-              <div class="stat-value">${resetDisplay}</div>
+              <div class="stat-label">Reset in</div>
+              <div class="stat-value">${resetTimeRemaining}</div>
             </div>
           ` : ''}
           ${totalSpent ? `
