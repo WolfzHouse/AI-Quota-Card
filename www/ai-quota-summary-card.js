@@ -29,62 +29,102 @@ class AIQuotaSummaryCard extends HTMLElement {
 
     const attributes = state.attributes;
     const apiPayload = attributes.api_payload || {};
+    const groups = attributes.groups || [];
     
-    // Extract data from API payload
-    const keyPreview = apiPayload.key_preview || 'Unknown';
-    const serviceType = apiPayload.service_type || '';
-    const subServiceName = apiPayload.sub_service_type_name || '';
-    const quota = apiPayload.quota || {};
+    // Extract basic info
+    let keyPreview = apiPayload.key_preview || attributes.email || 'Unknown';
+    let serviceType = apiPayload.service_type || '';
+    let subServiceName = apiPayload.sub_service_type_name || attributes.plan || '';
+    
+    // Initialize display variables
+    let percentage = 0;
+    let quotaDisplay = '';
+    let totalSpent = '0.00';
+    let dailySpent = '0.00';
+    let expiresDisplay = '';
+    let resetTimeRemaining = '';
+    
+    // Try to get percentage from state first (main sensor value)
+    const stateValue = parseFloat(state.state);
+    if (!isNaN(stateValue)) {
+      percentage = Math.round(stateValue);
+    }
+    
+    // Get data from api_payload if available
     const usage = apiPayload.usage || {};
+    const quota = apiPayload.quota || {};
     const timestamps = apiPayload.timestamps || {};
     
-    // Calculate percentage
-    let percentage = 0;
-    let usedAmount = 0;
-    let totalAmount = 0;
-    let quotaDisplay = '';
-    
+    // Calculate quota display based on type
     if (quota.type === 'duration') {
       const dailyQuota = parseFloat(quota.daily_quota || 0);
       const dailyRemaining = parseFloat(quota.daily_remaining || 0);
-      const dailySpent = parseFloat(quota.daily_spent || 0);
+      const dailySpentVal = parseFloat(quota.daily_spent || 0);
 
-      if (dailyQuota > 0) {
+      if (dailyQuota > 0 && percentage === 0) {
         percentage = Math.round((dailyRemaining / dailyQuota) * 100);
-        // Duration is in seconds, convert to dollars (cents)
-        usedAmount = dailySpent / 100;
-        totalAmount = dailyQuota / 100;
-        quotaDisplay = `$${usedAmount.toFixed(2)} / $${totalAmount.toFixed(2)}`;
       }
+      
+      // Duration is in seconds, convert to hours
+      const usedHours = (dailySpentVal / 3600).toFixed(2);
+      const totalHours = (dailyQuota / 3600).toFixed(2);
+      quotaDisplay = `${usedHours}h / ${totalHours}h`;
+      
     } else if (quota.type === 'usd') {
       const totalQuota = parseFloat(quota.total_quota || 0);
       const totalRemaining = parseFloat(quota.total_remaining || 0);
       const totalSpentQuota = parseFloat(quota.total_spent || 0);
 
-      if (totalQuota > 0) {
+      if (totalQuota > 0 && percentage === 0) {
         percentage = Math.round((totalRemaining / totalQuota) * 100);
-        usedAmount = totalSpentQuota / 100;
-        totalAmount = totalQuota / 100;
-        quotaDisplay = `$${usedAmount.toFixed(2)} / $${totalAmount.toFixed(2)}`;
       }
+      
+      const usedAmount = (totalSpentQuota / 100).toFixed(2);
+      const totalAmount = (totalQuota / 100).toFixed(2);
+      quotaDisplay = `$${usedAmount} / $${totalAmount}`;
+      
     } else if (quota.type === 'count') {
       const remaining = parseFloat(quota.remaining_quota || 0);
       quotaDisplay = `${remaining} requests remaining`;
+      if (percentage === 0) {
+        percentage = remaining > 0 ? 100 : 0;
+      }
+    }
+    
+    // If still no quota display, try to extract from groups
+    if (!quotaDisplay && groups.length > 0) {
+      const firstGroup = groups[0];
+      if (firstGroup.models && firstGroup.models.length > 0) {
+        const firstModel = firstGroup.models[0];
+        
+        // Check if resetTime contains usage info (like "1.23h / 10.00h")
+        if (firstModel.resetTime && (firstModel.resetTime.includes('/') || firstModel.resetTime.includes('$'))) {
+          quotaDisplay = firstModel.resetTime;
+        }
+        
+        // Use model name as fallback
+        if (!quotaDisplay) {
+          quotaDisplay = firstModel.name || '';
+        }
+      }
     }
     
     // Get spend information
-    const totalSpent = (parseFloat(usage.total_spent || 0) / 100).toFixed(2);
-    const dailySpent = (parseFloat(usage.daily_spent || 0) / 100).toFixed(2);
+    if (usage.total_spent !== undefined) {
+      totalSpent = (parseFloat(usage.total_spent) / 100).toFixed(2);
+    }
+    if (usage.daily_spent !== undefined) {
+      dailySpent = (parseFloat(usage.daily_spent) / 100).toFixed(2);
+    }
     
     // Get expiration date
     const expiresAt = timestamps.expires_at || '';
-    let expiresDisplay = '';
     if (expiresAt) {
       try {
         const expireDate = new Date(expiresAt);
         const now = new Date();
         const daysLeft = Math.ceil((expireDate - now) / (1000 * 60 * 60 * 24));
-        expiresDisplay = `${daysLeft} days`;
+        expiresDisplay = daysLeft > 0 ? `${daysLeft} days` : 'Expired';
       } catch (e) {
         expiresDisplay = expiresAt;
       }
@@ -92,8 +132,6 @@ class AIQuotaSummaryCard extends HTMLElement {
     
     // Get reset time
     const nextReset = quota.next_reset_at || '';
-    let resetDisplay = '';
-    let resetTimeRemaining = '';
     if (nextReset) {
       try {
         const resetDate = new Date(nextReset);
@@ -105,12 +143,10 @@ class AIQuotaSummaryCard extends HTMLElement {
           const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
           resetTimeRemaining = `${hours}h ${minutes}m`;
         } else {
-          resetTimeRemaining = 'Resetting soon';
+          resetTimeRemaining = 'Ready to reset';
         }
-
-        resetDisplay = resetDate.toLocaleString();
       } catch (e) {
-        resetDisplay = nextReset;
+        resetTimeRemaining = '';
       }
     }
     
@@ -213,7 +249,7 @@ class AIQuotaSummaryCard extends HTMLElement {
           <div class="progress-bar">
             <div class="progress-fill" style="width: ${percentage}%"></div>
           </div>
-          <div class="usage-display">${quotaDisplay}</div>
+          ${quotaDisplay ? `<div class="usage-display">${quotaDisplay}</div>` : ''}
         </div>
 
         <div class="quota-stats">
@@ -229,16 +265,18 @@ class AIQuotaSummaryCard extends HTMLElement {
               <div class="stat-value">${resetTimeRemaining}</div>
             </div>
           ` : ''}
-          ${totalSpent ? `
+          ${totalSpent && parseFloat(totalSpent) > 0 ? `
             <div class="stat-item">
               <div class="stat-label">Total Spent</div>
               <div class="stat-value">$${totalSpent}</div>
             </div>
           ` : ''}
-          <div class="stat-item">
-            <div class="stat-label">Daily Spent</div>
-            <div class="stat-value">$${dailySpent}</div>
-          </div>
+          ${dailySpent && parseFloat(dailySpent) > 0 ? `
+            <div class="stat-item">
+              <div class="stat-label">Daily Spent</div>
+              <div class="stat-value">$${dailySpent}</div>
+            </div>
+          ` : ''}
         </div>
       </div>
     `;
