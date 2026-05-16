@@ -29,7 +29,7 @@ async def async_setup_entry(
 
     # Access parsed data from coordinator
     data = coordinator.data
-    if not data or "items" not in data:
+    if not data:
         # If API failed on first fetch, data might be empty. Coordinator should handle retries
         return
 
@@ -37,163 +37,99 @@ async def async_setup_entry(
     plan = data.get("plan", "Unknown Plan")
 
     device_id = f"ai_quota_{provider}_{auth_index}"
-    device_name = f"{provider.capitalize()} Quota (Auth {auth_index})"
+    device_name = f"{provider.capitalize()} (Auth {auth_index})"
 
     device_info = DeviceInfo(
         identifiers={(DOMAIN, device_id)},
         name=device_name,
-        manufacturer="AI Quota Metrics",
+        manufacturer="AI Quota",
         model=plan,
-        sw_version=email, # Hacky way to neatly show email attached to device
+        sw_version=email,
     )
 
-    sensors = []
-
-    # Iterate through groups (e.g. "Claude Quota", "GPT", "Gemini")
-    for group in data["items"]:
-        # We also create a sensor for the group's global avg quota just in case
-        group_id = group["name"].lower().replace(" ", "_").replace(".", "_")
-        sensors.append(AIQuotaPercentageSensor(
+    # Create just ONE main sensor with all data in attributes
+    sensors = [
+        AIQuotaMainSensor(
             coordinator=coordinator,
             device_info=device_info,
             provider=provider,
             auth_index=auth_index,
-            group_name=group["name"],
-            model_name=None,
-            entity_id_base=f"{device_id}_{group_id}_avg"
-        ))
-
-        # Iterating through actual models/limits inside the group
-        for model in group["models"]:
-            # Sanitize names for entity registry
-            raw_model_name = model["name"]
-            sanitized_name = raw_model_name.lower().replace(" ", "_").replace("-", "_").replace(".", "_")
-
-            # 1. Percentage Sensor
-            sensors.append(AIQuotaPercentageSensor(
-                coordinator=coordinator,
-                device_info=device_info,
-                provider=provider,
-                auth_index=auth_index,
-                group_name=group["name"],
-                model_name=raw_model_name,
-                entity_id_base=f"{device_id}_{sanitized_name}"
-            ))
-
-            # 2. Reset Time / Extra Info Sensor (Only if there's actually a reset value)
-            if model.get("resetTime"):
-                sensors.append(AIQuotaResetSensor(
-                    coordinator=coordinator,
-                    device_info=device_info,
-                    provider=provider,
-                    auth_index=auth_index,
-                    group_name=group["name"],
-                    model_name=raw_model_name,
-                    entity_id_base=f"{device_id}_{sanitized_name}_reset"
-                ))
+            entity_id_base=f"{provider}_{provider}_auth_{auth_index}"
+        )
+    ]
 
     async_add_entities(sensors, update_before_add=False)
 
 
-class AIQuotaPercentageSensor(CoordinatorEntity, SensorEntity):
-    """Percentage sensor for a quota limit."""
+class AIQuotaMainSensor(CoordinatorEntity, SensorEntity):
+    """Main sensor that contains all quota data in attributes."""
 
     def __init__(
-        self, coordinator, device_info, provider, auth_index, group_name, model_name, entity_id_base
+        self, coordinator, device_info, provider, auth_index, entity_id_base
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._attr_device_info = device_info
-        
+
         self._provider = provider
         self._auth_index = str(auth_index)
-        self._group_name = group_name
-        self._model_name = model_name
-        
+
         self.entity_id = f"sensor.{entity_id_base}"
         self._attr_unique_id = self.entity_id
-        
-        display_name = f"{model_name}" if model_name else f"{group_name} Average"
-        self._attr_name = f"{provider.capitalize()} {display_name} Quota"
-        
-        self._attr_icon = "mdi:chart-arc"
+        self._attr_name = f"{provider.capitalize()} Quota"
+
+        self._attr_icon = "mdi:chart-donut"
         self._attr_native_unit_of_measurement = "%"
         self._attr_state_class = SensorStateClass.MEASUREMENT
 
     @property
     def native_value(self):
-        """Return the state of the sensor."""
-        if not self.coordinator.data or "items" not in self.coordinator.data:
+        """Return the main quota percentage."""
+        if not self.coordinator.data:
             return None
-            
-        # Parse through updated coordinator data to reflect current loop targets
-        for group in self.coordinator.data["items"]:
-            if group["name"] == self._group_name:
-                if not self._model_name:
-                    return group.get("percentage")
-                
-                for model in group["models"]:
-                    if model["name"] == self._model_name:
-                        return model.get("percentage")
-        
+
+        # Return the first group's percentage as the main state
+        items = self.coordinator.data.get("items", [])
+        if items and len(items) > 0:
+            return items[0].get("percentage")
+
         return None
 
     @property
     def extra_state_attributes(self):
-        """Return entity specific state attributes."""
+        """Return all quota data in attributes."""
+        if not self.coordinator.data:
+            return {}
+
         attrs = {
-            "group_name": self._group_name,
-            "model_name": self._model_name,
             "provider": self._provider,
             "auth_index": self._auth_index,
+            "email": self.coordinator.data.get("email", "Unknown"),
+            "plan": self.coordinator.data.get("plan", "Unknown"),
+            "api_payload": self.coordinator.data,
         }
-        if self.coordinator.data:
-            attrs["plan"] = self.coordinator.data.get("plan", "Unknown Plan")
-            attrs["email"] = self.coordinator.data.get("email", "Unknown Email")
-        return attrs
 
-class AIQuotaResetSensor(CoordinatorEntity, SensorEntity):
-    """Auxiliary string sensor for reset times or usage stats."""
+        # Add summary of all groups and models
+        items = self.coordinator.data.get("items", [])
+        if items:
+            groups_summary = []
+            for group in items:
+                group_info = {
+                    "name": group.get("name"),
+                    "percentage": group.get("percentage"),
+                    "models": []
+                }
+                for model in group.get("models", []):
+                    model_info = {
+                        "name": model.get("name"),
+                        "percentage": model.get("percentage"),
+                        "resetTime": model.get("resetTime"),
+                        "usage": model.get("usage"),
+                        "limit": model.get("limit"),
+                    }
+                    group_info["models"].append(model_info)
+                groups_summary.append(group_info)
 
-    def __init__(
-        self, coordinator, device_info, provider, auth_index, group_name, model_name, entity_id_base
-    ) -> None:
-        """Initialize."""
-        super().__init__(coordinator)
-        self._attr_device_info = device_info
-        
-        self._group_name = group_name
-        self._model_name = model_name
-        
-        self.entity_id = f"sensor.{entity_id_base}"
-        self._attr_unique_id = self.entity_id
-        self._attr_name = f"{provider.capitalize()} {model_name} Info"
-        
-        self._attr_icon = "mdi:information-outline"
-        if "reset" in entity_id_base.lower() and "extra" not in entity_id_base.lower():
-            self._attr_icon = "mdi:clock-outline"
+            attrs["groups"] = groups_summary
 
-    @property
-    def native_value(self):
-        """Return string values like $38.00 / $100.00 or ISO8601 Timestamp."""
-        if not self.coordinator.data or "items" not in self.coordinator.data:
-            return None
-            
-        for group in self.coordinator.data["items"]:
-            if group["name"] == self._group_name:
-                for model in group["models"]:
-                    if model["name"] == self._model_name:
-                        return model.get("resetTime")
-        return None
-
-    @property
-    def extra_state_attributes(self):
-        """Return entity specific state attributes."""
-        attrs = {
-            "group_name": self._group_name,
-            "model_name": self._model_name,
-        }
-        if self.coordinator.data:
-            attrs["plan"] = self.coordinator.data.get("plan", "Unknown Plan")
-            attrs["email"] = self.coordinator.data.get("email", "Unknown Email")
         return attrs
