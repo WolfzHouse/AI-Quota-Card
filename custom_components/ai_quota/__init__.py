@@ -19,8 +19,9 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
-_CARD_URL = f"/{DOMAIN}/ai-quota-summary-card.js"
-_CARD_REGISTERED = False
+_SUMMARY_CARD_URL = f"/{DOMAIN}/ai-quota-summary-card.js"
+_STANDALONE_CARD_URL = f"/{DOMAIN}/ai-quota-standalone-card.js"
+_CARDS_REGISTERED = False
 
 
 async def _ensure_lovelace_resource(hass: HomeAssistant, url: str) -> None:
@@ -44,19 +45,28 @@ async def _ensure_lovelace_resource(hass: HomeAssistant, url: str) -> None:
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Register the Lovelace card JS on every HA boot."""
-    global _CARD_REGISTERED
-    if not _CARD_REGISTERED:
-        card_path = Path(__file__).parent / "www" / "ai-quota-summary-card.js"
+    """Register the Lovelace cards JS on every HA boot."""
+    global _CARDS_REGISTERED
+    if not _CARDS_REGISTERED:
+        # Register summary card
+        summary_card_path = Path(__file__).parent / "www" / "ai-quota-summary-card.js"
         await hass.http.async_register_static_paths([
-            StaticPathConfig(_CARD_URL, str(card_path), cache_headers=False)
+            StaticPathConfig(_SUMMARY_CARD_URL, str(summary_card_path), cache_headers=False)
         ])
-        # Inject into current frontend session (clears on restart but immediate)
-        add_extra_js_url(hass, _CARD_URL)
-        # Write to persistent storage so it survives HA restarts as a proper resource
-        await _ensure_lovelace_resource(hass, _CARD_URL)
-        _CARD_REGISTERED = True
-        _LOGGER.info("AI Quota Summary Card fully registered at %s", _CARD_URL)
+        add_extra_js_url(hass, _SUMMARY_CARD_URL)
+        await _ensure_lovelace_resource(hass, _SUMMARY_CARD_URL)
+        _LOGGER.info("AI Quota Summary Card fully registered at %s", _SUMMARY_CARD_URL)
+        
+        # Register standalone card
+        standalone_card_path = Path(__file__).parent / "www" / "ai-quota-standalone-card.js"
+        await hass.http.async_register_static_paths([
+            StaticPathConfig(_STANDALONE_CARD_URL, str(standalone_card_path), cache_headers=False)
+        ])
+        add_extra_js_url(hass, _STANDALONE_CARD_URL)
+        await _ensure_lovelace_resource(hass, _STANDALONE_CARD_URL)
+        _LOGGER.info("AI Quota Standalone Card fully registered at %s", _STANDALONE_CARD_URL)
+        
+        _CARDS_REGISTERED = True
 
     return True
 
