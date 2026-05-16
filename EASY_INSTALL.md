@@ -33,11 +33,18 @@ Your folder structure should look like:
               └── ai-quota-summary-card.js  ← Card auto-loads!
 ```
 
-### Step 2: Restart Home Assistant
+### Step 2: Restart Home Assistant (TWICE!)
+
+**Important**: You need to restart Home Assistant **twice** for cards to work!
 
 1. Go to **Settings** → **System**
 2. Click **Restart** (top right)
 3. Wait for Home Assistant to restart
+4. **Restart again** - Go to **Settings** → **System** → **Restart**
+
+Why twice?
+- First restart: Registers the cards
+- Second restart: Loads the card JavaScript files
 
 ### Step 3: Add Integration
 

@@ -22,8 +22,9 @@ cp -r custom_components/ai_quota /config/custom_components/
 
 ### 2. Restart Home Assistant
 ```
-Settings → System → Restart
+Settings → System → Restart (do this TWICE!)
 ```
+**Important**: Restart twice for cards to load properly!
 
 ### 3. Add Integration
 ```
