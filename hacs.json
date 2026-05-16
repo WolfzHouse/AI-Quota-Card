@@ -1,6 +1,8 @@
 {
-  "name": "AI Quota Integration",
+  "name": "AI Web Quota",
+  "content_in_root": false,
   "render_readme": true,
+  "domains": ["sensor"],
   "iot_class": "Cloud Polling",
-  "hacs": "1.32.0"
+  "homeassistant": "2023.1.0"
 }
