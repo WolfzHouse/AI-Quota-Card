@@ -88,10 +88,16 @@ class AIQuotaMainSensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data:
             return None
 
-        # Return the first group's percentage as the main state
+        # Return the first group's first model's percentage as the main state
         items = self.coordinator.data.get("items", [])
         if items and len(items) > 0:
-            return items[0].get("percentage")
+            group = items[0]
+            models = group.get("models", [])
+            if models and len(models) > 0:
+                # Return the first model's percentage (usually the main quota)
+                return models[0].get("percentage")
+            # Fallback to group percentage if no models
+            return group.get("percentage")
 
         return None
 
