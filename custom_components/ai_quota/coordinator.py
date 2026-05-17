@@ -694,11 +694,9 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                     target_connection = None
                     
                     # Filter connections by provider name (exact match)
+                    # Include both active and inactive accounts
                     matching_connections = []
                     for conn in connections:
-                        if not conn.get("isActive", False):
-                            continue
-                        
                         conn_provider = conn.get("provider", "").lower()
                         config_provider = provider.lower()
                         
@@ -706,8 +704,8 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                         # e.g., "claude" matches "claude" or "anthropic-compatible-..."
                         if conn_provider == config_provider or config_provider in conn_provider:
                             matching_connections.append(conn)
-                            _LOGGER.debug("[AI Quota DEBUG] 9Router | Matched connection: provider='%s', name='%s'", 
-                                          conn_provider, conn.get("name"))
+                            _LOGGER.debug("[AI Quota DEBUG] 9Router | Matched connection: provider='%s', name='%s', active=%s", 
+                                          conn_provider, conn.get("name"), conn.get("isActive"))
                     
                     _LOGGER.debug("[AI Quota DEBUG] 9Router | Found %d matching connections for provider '%s'", 
                                   len(matching_connections), provider)

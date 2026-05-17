@@ -1,4 +1,5 @@
 import requests
+import json
 
 # Test 9router authentication
 base_url = "http://192.168.1.107:20128"
@@ -20,8 +21,6 @@ login_response = session.post(
 
 print(f"Login Status: {login_response.status_code}")
 print(f"Login Response: {login_response.text}")
-print(f"Login Cookies: {session.cookies.get_dict()}")
-print(f"Login Headers: {dict(login_response.headers)}")
 print()
 
 # Step 2: Get providers
@@ -34,5 +33,14 @@ providers_response = session.get(
 )
 
 print(f"Providers Status: {providers_response.status_code}")
-print(f"Providers Response: {providers_response.text[:500]}")
-print(f"Session Cookies: {session.cookies.get_dict()}")
+providers_data = providers_response.json()
+print(f"\nFull Response:")
+print(json.dumps(providers_data, indent=2))
+
+print(f"\n\nConnections Summary:")
+for i, conn in enumerate(providers_data.get("connections", [])):
+    print(f"\n[{i}] Provider: {conn.get('provider')}")
+    print(f"    Name: {conn.get('name')}")
+    print(f"    Email: {conn.get('email')}")
+    print(f"    Active: {conn.get('isActive')}")
+    print(f"    ID: {conn.get('id')}")
