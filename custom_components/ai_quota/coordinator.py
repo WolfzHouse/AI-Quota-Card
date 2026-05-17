@@ -652,11 +652,26 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                             login_text = await login_response.text()
                             _LOGGER.debug("[AI Quota] 9Router login response status: %d", login_response.status)
                             _LOGGER.debug("[AI Quota] 9Router login response body: %s", login_text[:500])
+                            _LOGGER.debug("[AI Quota] 9Router login response headers: %s", dict(login_response.headers))
                             
                             if not login_response.ok:
                                 raise UpdateFailed(f"9Router login failed {login_response.status}: {login_text[:200]}")
                             
+                            # Verify login was successful
+                            try:
+                                login_data = json.loads(login_text)
+                                if not login_data.get("success"):
+                                    raise UpdateFailed(f"9Router login failed: {login_text[:200]}")
+                            except json.JSONDecodeError:
+                                _LOGGER.warning("[AI Quota] 9Router login response is not JSON: %s", login_text[:200])
+                            
                             _LOGGER.debug("[AI Quota] 9Router login successful, cookies: %s", session.cookie_jar)
+                            
+                            # Log all cookies for debugging
+                            for cookie in session.cookie_jar:
+                                _LOGGER.debug("[AI Quota] 9Router cookie: %s=%s (domain=%s, path=%s)", 
+                                            cookie.key, cookie.value[:20] if len(cookie.value) > 20 else cookie.value,
+                                            cookie.get('domain', 'N/A'), cookie.get('path', 'N/A'))
                         
                         # Now get providers list with authentication
                         async with session.get(
