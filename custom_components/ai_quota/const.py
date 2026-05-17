@@ -3,10 +3,7 @@
 DOMAIN = "ai_quota"
 
 CONF_PROXY_URL = "proxy_url"
-CONF_PROVIDER = "provider"
-CONF_AUTH_INDEX = "auth_index"
 CONF_API_KEY = "api_key"
-CONF_ACCOUNT_NAME = "account_name"
 CONF_DATA_SOURCE = "data_source"
 
 DEFAULT_PROXY_URL = "https://ai.wolfz.shop/v0/management/api-call"
@@ -16,14 +13,4 @@ DATA_SOURCES = {
     "cliproxy": "CLIProxy",
     "trouter": "Trouter.click",
     "9router": "9Router"
-}
-
-PROVIDERS = {
-    "antigravity": "Antigravity",
-    "claude": "Claude (Anthropic)",
-    "codex": "Codex (OpenAI)",
-    "gemini-cli": "Gemini CLI",
-    "kiro": "Kiro (CodeWhisperer)",
-    "copilot": "GitHub Copilot",
-    "trouter": "Trouter"
 }
