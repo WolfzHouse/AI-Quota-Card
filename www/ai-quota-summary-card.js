@@ -7,16 +7,38 @@ class AIQuotaSummaryCard extends HTMLElement {
   }
 
   set hass(hass) {
+    this._hass = hass;
+    
     if (!this.content) {
       const card = document.createElement('ha-card');
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', () => this.handleRefresh());
+      
       this.content = document.createElement('div');
       this.content.style.padding = '16px';
       card.appendChild(this.content);
       this.appendChild(card);
     }
 
+    this.render();
+  }
+
+  handleRefresh() {
     const entityId = this.config.entity;
-    const state = hass.states[entityId];
+    this._hass.callService('homeassistant', 'update_entity', {
+      entity_id: entityId
+    });
+    
+    // Visual feedback
+    this.content.style.opacity = '0.6';
+    setTimeout(() => {
+      this.content.style.opacity = '1';
+    }, 500);
+  }
+
+  render() {
+    const entityId = this.config.entity;
+    const state = this._hass.states[entityId];
 
     if (!state) {
       this.content.innerHTML = `
@@ -31,6 +53,182 @@ class AIQuotaSummaryCard extends HTMLElement {
     const apiPayload = attributes.api_payload || {};
     const groups = attributes.groups || [];
     
+    // Detect format: 9Router has items with usageDisplay and expiresIn
+    const is9Router = groups.length > 0 && 
+                      groups[0].models && 
+                      groups[0].models.length > 0 && 
+                      groups[0].models[0].usageDisplay !== undefined;
+    
+    if (is9Router) {
+      this.render9Router(state, attributes, groups);
+    } else {
+      this.renderTrouter(state, attributes, apiPayload);
+    }
+  }
+
+  render9Router(state, attributes, groups) {
+    const provider = attributes.provider || 'Unknown';
+    const email = attributes.email || 'Unknown';
+    const plan = attributes.plan || '';
+    
+    // Get provider icon
+    const providerIcons = {
+      'claude': '🤖',
+      'codex': '💻',
+      'openai': '🔮',
+      'gemini': '✨'
+    };
+    const icon = providerIcons[provider.toLowerCase()] || '🔧';
+    
+    let quotaItemsHTML = '';
+    
+    if (groups.length > 0 && groups[0].models) {
+      groups[0].models.forEach(model => {
+        const percentage = model.percentage || 0;
+        const name = model.name || 'Unknown';
+        const usage = model.usage || 0;
+        const limit = model.limit || 100;
+        const usageDisplay = model.usageDisplay || `${usage}/${limit}`;
+        const expiresIn = model.expiresIn || '';
+        const resetTime = model.resetTime || '';
+        
+        // Determine color based on percentage
+        let barColor = '#4caf50'; // Green
+        if (percentage < 30) {
+          barColor = '#f44336'; // Red
+        } else if (percentage < 60) {
+          barColor = '#ff9800'; // Orange
+        }
+        
+        quotaItemsHTML += `
+          <div class="quota-item">
+            <div class="quota-item-header">
+              <span class="quota-dot" style="background-color: ${barColor};"></span>
+              <span class="quota-name">${name}</span>
+              <span class="quota-usage">${usageDisplay}</span>
+            </div>
+            <div class="progress-bar-container">
+              <div class="progress-bar-fill" style="width: ${percentage}%; background-color: ${barColor};"></div>
+            </div>
+            <div class="quota-item-footer">
+              <span class="quota-percentage">${percentage}%</span>
+              ${expiresIn ? `<span class="quota-expires">in ${expiresIn}</span>` : ''}
+            </div>
+          </div>
+        `;
+      });
+    }
+    
+    this.content.innerHTML = `
+      <style>
+        .quota-card-9router {
+          font-family: var(--paper-font-body1_-_font-family);
+        }
+        .quota-header-9router {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 16px;
+          padding-bottom: 12px;
+          border-bottom: 1px solid var(--divider-color);
+        }
+        .provider-icon {
+          font-size: 32px;
+        }
+        .provider-info {
+          flex: 1;
+        }
+        .provider-name {
+          font-size: 18px;
+          font-weight: 600;
+          color: var(--primary-text-color);
+          text-transform: capitalize;
+        }
+        .provider-email {
+          font-size: 13px;
+          color: var(--secondary-text-color);
+          margin-top: 2px;
+        }
+        .refresh-icon {
+          font-size: 20px;
+          color: var(--secondary-text-color);
+          cursor: pointer;
+          padding: 8px;
+          border-radius: 50%;
+          transition: background-color 0.2s;
+        }
+        .refresh-icon:hover {
+          background-color: var(--divider-color);
+        }
+        .quota-item {
+          margin-bottom: 16px;
+          padding: 12px;
+          background-color: var(--card-background-color);
+          border-radius: 8px;
+          border: 1px solid var(--divider-color);
+        }
+        .quota-item-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 8px;
+        }
+        .quota-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+        }
+        .quota-name {
+          flex: 1;
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--primary-text-color);
+        }
+        .quota-usage {
+          font-size: 13px;
+          color: var(--secondary-text-color);
+        }
+        .progress-bar-container {
+          height: 6px;
+          background-color: var(--divider-color);
+          border-radius: 3px;
+          overflow: hidden;
+          margin-bottom: 6px;
+        }
+        .progress-bar-fill {
+          height: 100%;
+          transition: width 0.3s ease;
+        }
+        .quota-item-footer {
+          display: flex;
+          justify-content: space-between;
+          font-size: 12px;
+        }
+        .quota-percentage {
+          color: var(--primary-text-color);
+          font-weight: 500;
+        }
+        .quota-expires {
+          color: var(--secondary-text-color);
+        }
+      </style>
+      
+      <div class="quota-card-9router">
+        <div class="quota-header-9router">
+          <div class="provider-icon">${icon}</div>
+          <div class="provider-info">
+            <div class="provider-name">${provider}</div>
+            <div class="provider-email">${email}</div>
+          </div>
+          <div class="refresh-icon" title="Tap card to refresh">🔄</div>
+        </div>
+        
+        ${quotaItemsHTML}
+      </div>
+    `;
+  }
+
+  renderTrouter(state, attributes, apiPayload) {
     // Extract basic info
     let keyPreview = apiPayload.key_preview || attributes.email || 'Unknown';
     let serviceType = apiPayload.service_type || '';
@@ -44,13 +242,13 @@ class AIQuotaSummaryCard extends HTMLElement {
     let expiresDisplay = '';
     let resetTimeRemaining = '';
     
-    // Try to get percentage from state first (main sensor value)
+    // Try to get percentage from state first
     const stateValue = parseFloat(state.state);
     if (!isNaN(stateValue)) {
       percentage = Math.round(stateValue);
     }
     
-    // Get data from api_payload if available
+    // Get data from api_payload
     const usage = apiPayload.usage || {};
     const quota = apiPayload.quota || {};
     const timestamps = apiPayload.timestamps || {};
@@ -65,7 +263,6 @@ class AIQuotaSummaryCard extends HTMLElement {
         percentage = Math.round((dailyRemaining / dailyQuota) * 100);
       }
       
-      // Duration is in seconds, convert to hours
       const usedHours = (dailySpentVal / 3600).toFixed(2);
       const totalHours = (dailyQuota / 3600).toFixed(2);
       quotaDisplay = `${usedHours}h / ${totalHours}h`;
@@ -82,83 +279,59 @@ class AIQuotaSummaryCard extends HTMLElement {
       const usedAmount = (totalSpentQuota / 100).toFixed(2);
       const totalAmount = (totalQuota / 100).toFixed(2);
       quotaDisplay = `$${usedAmount} / $${totalAmount}`;
-      
-    } else if (quota.type === 'count') {
-      const remaining = parseFloat(quota.remaining_quota || 0);
-      quotaDisplay = `${remaining} requests remaining`;
-      if (percentage === 0) {
-        percentage = remaining > 0 ? 100 : 0;
-      }
     }
     
-    // If still no quota display, try to extract from groups
-    if (!quotaDisplay && groups.length > 0) {
-      const firstGroup = groups[0];
-      if (firstGroup.models && firstGroup.models.length > 0) {
-        const firstModel = firstGroup.models[0];
-        
-        // Check if resetTime contains usage info (like "1.23h / 10.00h")
-        if (firstModel.resetTime && (firstModel.resetTime.includes('/') || firstModel.resetTime.includes('$'))) {
-          quotaDisplay = firstModel.resetTime;
-        }
-        
-        // Use model name as fallback
-        if (!quotaDisplay) {
-          quotaDisplay = firstModel.name || '';
-        }
-      }
+    // Get spending info
+    if (usage.total_spent) {
+      totalSpent = (usage.total_spent / 100).toFixed(2);
+    }
+    if (usage.daily_spent) {
+      dailySpent = (usage.daily_spent / 100).toFixed(2);
     }
     
-    // Get spend information
-    if (usage.total_spent !== undefined) {
-      totalSpent = (parseFloat(usage.total_spent) / 100).toFixed(2);
-    }
-    if (usage.daily_spent !== undefined) {
-      dailySpent = (parseFloat(usage.daily_spent) / 100).toFixed(2);
-    }
-    
-    // Get expiration date
-    const expiresAt = timestamps.expires_at || '';
-    if (expiresAt) {
+    // Get expiration info
+    if (timestamps.expires_at) {
       try {
-        const expireDate = new Date(expiresAt);
+        const expiresAt = new Date(timestamps.expires_at);
         const now = new Date();
-        const daysLeft = Math.ceil((expireDate - now) / (1000 * 60 * 60 * 24));
-        expiresDisplay = daysLeft > 0 ? `${daysLeft} days` : 'Expired';
-      } catch (e) {
-        expiresDisplay = expiresAt;
-      }
+        const diff = expiresAt - now;
+        
+        if (diff > 0) {
+          const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+          const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          
+          if (days > 0) {
+            expiresDisplay = `${days}d ${hours}h`;
+          } else {
+            expiresDisplay = `${hours}h`;
+          }
+        }
+      } catch (e) {}
     }
     
     // Get reset time
-    const nextReset = quota.next_reset_at || '';
-    if (nextReset) {
+    if (quota.next_reset_at) {
       try {
-        const resetDate = new Date(nextReset);
+        const resetAt = new Date(quota.next_reset_at);
         const now = new Date();
-        const diffMs = resetDate - now;
-
-        if (diffMs > 0) {
-          const hours = Math.floor(diffMs / (1000 * 60 * 60));
-          const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        const diff = resetAt - now;
+        
+        if (diff > 0) {
+          const hours = Math.floor(diff / (1000 * 60 * 60));
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
           resetTimeRemaining = `${hours}h ${minutes}m`;
-        } else {
-          resetTimeRemaining = 'Ready to reset';
         }
-      } catch (e) {
-        resetTimeRemaining = '';
-      }
+      } catch (e) {}
     }
     
-    // Determine color based on percentage
-    let barColor = '#4caf50'; // Green
+    // Determine color
+    let barColor = '#4caf50';
     if (percentage < 30) {
-      barColor = '#f44336'; // Red
+      barColor = '#f44336';
     } else if (percentage < 60) {
-      barColor = '#ff9800'; // Orange
+      barColor = '#ff9800';
     }
     
-    // Build the card HTML
     this.content.innerHTML = `
       <style>
         .quota-card {
@@ -169,32 +342,27 @@ class AIQuotaSummaryCard extends HTMLElement {
           justify-content: space-between;
           align-items: center;
           margin-bottom: 16px;
-          padding-bottom: 12px;
-          border-bottom: 1px solid var(--divider-color);
-        }
-        .api-key {
-          font-size: 14px;
-          color: var(--secondary-text-color);
-          font-family: monospace;
         }
         .service-type {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--primary-text-color);
+        }
+        .api-key {
           font-size: 12px;
-          color: var(--primary-color);
-          font-weight: 500;
-          text-transform: uppercase;
+          color: var(--secondary-text-color);
+          margin-top: 4px;
         }
         .quota-main {
-          margin-bottom: 16px;
+          text-align: center;
         }
         .percentage-display {
           font-size: 48px;
-          font-weight: 300;
-          color: var(--primary-text-color);
-          text-align: center;
+          font-weight: 700;
+          color: ${barColor};
           margin: 16px 0;
         }
         .progress-bar {
-          width: 100%;
           height: 8px;
           background-color: var(--divider-color);
           border-radius: 4px;
@@ -233,6 +401,13 @@ class AIQuotaSummaryCard extends HTMLElement {
           font-size: 18px;
           color: var(--secondary-text-color);
           margin: 8px 0;
+        }
+        .refresh-hint {
+          text-align: center;
+          font-size: 11px;
+          color: var(--secondary-text-color);
+          margin-top: 12px;
+          opacity: 0.7;
         }
       </style>
       
@@ -278,6 +453,8 @@ class AIQuotaSummaryCard extends HTMLElement {
             </div>
           ` : ''}
         </div>
+        
+        <div class="refresh-hint">Tap card to refresh</div>
       </div>
     `;
   }
@@ -294,6 +471,6 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: 'ai-quota-summary-card',
   name: 'AI Quota Summary Card',
-  description: 'Display AI quota information in a clean summary format',
+  description: 'Display AI quota information for Trouter and 9Router',
   preview: true,
 });

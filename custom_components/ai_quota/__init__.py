@@ -19,11 +19,9 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
-_CARD_VERSION = "1.0.4"
+_CARD_VERSION = "1.0.5"
 _SUMMARY_CARD_BASE_URL = f"/{DOMAIN}/ai-quota-summary-card.js"
-_STANDALONE_CARD_BASE_URL = f"/{DOMAIN}/ai-quota-standalone-card.js"
 _SUMMARY_CARD_URL = f"{_SUMMARY_CARD_BASE_URL}?v={_CARD_VERSION}"
-_STANDALONE_CARD_URL = f"{_STANDALONE_CARD_BASE_URL}?v={_CARD_VERSION}"
 _CARDS_REGISTERED = False
 
 
@@ -48,10 +46,10 @@ async def _ensure_lovelace_resource(hass: HomeAssistant, url: str) -> None:
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Register the Lovelace cards JS on every HA boot."""
+    """Register the Lovelace card JS on every HA boot."""
     global _CARDS_REGISTERED
     if not _CARDS_REGISTERED:
-        # Register summary card
+        # Register summary card (supports both Trouter and 9Router)
         summary_card_path = Path(__file__).parent / "www" / "ai-quota-summary-card.js"
         await hass.http.async_register_static_paths([
             StaticPathConfig(_SUMMARY_CARD_BASE_URL, str(summary_card_path), cache_headers=False)
@@ -59,15 +57,6 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         add_extra_js_url(hass, _SUMMARY_CARD_URL)
         await _ensure_lovelace_resource(hass, _SUMMARY_CARD_URL)
         _LOGGER.info("AI Quota Summary Card fully registered at %s", _SUMMARY_CARD_URL)
-        
-        # Register standalone card
-        standalone_card_path = Path(__file__).parent / "www" / "ai-quota-standalone-card.js"
-        await hass.http.async_register_static_paths([
-            StaticPathConfig(_STANDALONE_CARD_BASE_URL, str(standalone_card_path), cache_headers=False)
-        ])
-        add_extra_js_url(hass, _STANDALONE_CARD_URL)
-        await _ensure_lovelace_resource(hass, _STANDALONE_CARD_URL)
-        _LOGGER.info("AI Quota Standalone Card fully registered at %s", _STANDALONE_CARD_URL)
         
         _CARDS_REGISTERED = True
 
