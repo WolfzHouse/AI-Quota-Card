@@ -602,7 +602,9 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
             base_url = proxy_url if proxy_url and proxy_url != DEFAULT_PROXY_URL else "http://localhost:20128"
             
             try:
-                async with aiohttp.ClientSession() as session:
+                # Create session with explicit cookie jar to ensure cookies persist
+                cookie_jar = aiohttp.CookieJar()
+                async with aiohttp.ClientSession(cookie_jar=cookie_jar) as session:
                     # Try to access without authentication first (like CLIProxy on localhost)
                     _LOGGER.debug("[AI Quota] 9Router attempting unauthenticated access to %s", base_url)
                     
