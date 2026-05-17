@@ -593,43 +593,22 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.error("[AI Quota CRASH] Trouter.click\n%s", traceback.format_exc())
                 raise UpdateFailed(f"Error communicating with Trouter API: {err}")
 
-        # Handle 9Router data source - direct API call with session authentication
+        # Handle 9Router data source - direct API call (try without auth first, like CLIProxy)
         elif data_source == "9router":
-            # For 9router, api_key is the password (no username required)
+            # For 9router, api_key is the password (optional - try without auth first)
             password = api_key
-            
-            if not password:
-                raise UpdateFailed("Password (API Key) is required for 9Router data source")
             
             # Get base URL from proxy_url field (default to localhost)
             base_url = proxy_url if proxy_url and proxy_url != DEFAULT_PROXY_URL else "http://localhost:20128"
             
             try:
                 async with aiohttp.ClientSession() as session:
-                    # Step 1: Login to get session cookie (9router only requires password)
-                    _LOGGER.debug("[AI Quota] 9Router attempting login to %s", base_url)
+                    # Try to access without authentication first (like CLIProxy on localhost)
+                    _LOGGER.debug("[AI Quota] 9Router attempting unauthenticated access to %s", base_url)
                     
-                    async with session.post(
-                        f"{base_url}/api/auth/login",
-                        json={"password": password},
-                        headers={
-                            "Content-Type": "application/json",
-                            "Accept": "application/json",
-                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                        },
-                        timeout=30
-                    ) as login_response:
-                        login_text = await login_response.text()
-                        _LOGGER.debug("[AI Quota] 9Router login response status: %d", login_response.status)
-                        _LOGGER.debug("[AI Quota] 9Router login response body: %s", login_text[:500])
-                        
-                        if not login_response.ok:
-                            raise UpdateFailed(f"9Router login failed {login_response.status}: {login_text[:200]}")
-                        
-                        # Session cookie is now stored in the session object
-                        _LOGGER.debug("[AI Quota] 9Router login successful, cookies: %s", session.cookie_jar)
+                    needs_auth = False
                     
-                    # Step 2: Get list of all providers/connections
+                    # Step 1: Try to get providers list without authentication
                     async with session.get(
                         f"{base_url}/api/providers/client",
                         headers={
@@ -637,15 +616,62 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                         },
                         timeout=30
-                    ) as providers_response:
-                        if not providers_response.ok:
-                            text = await providers_response.text()
-                            raise UpdateFailed(f"9Router providers API error {providers_response.status}: {text[:200]}")
+                    ) as test_response:
+                        if test_response.status == 401:
+                            _LOGGER.debug("[AI Quota] 9Router requires authentication")
+                            needs_auth = True
+                        elif not test_response.ok:
+                            text = await test_response.text()
+                            raise UpdateFailed(f"9Router API error {test_response.status}: {text[:200]}")
+                        else:
+                            # Success without auth!
+                            _LOGGER.debug("[AI Quota] 9Router access successful without authentication")
+                            providers_data = await test_response.json()
+                            connections = providers_data.get("connections", [])
+                            _LOGGER.debug("[AI Quota DEBUG] 9Router | Found %d connections", len(connections))
+                    
+                    # Step 2: If authentication is needed, login first
+                    if needs_auth:
+                        if not password:
+                            raise UpdateFailed("9Router requires password for authentication")
                         
-                        providers_data = await providers_response.json()
-                        connections = providers_data.get("connections", [])
+                        _LOGGER.debug("[AI Quota] 9Router attempting login with password")
                         
-                        _LOGGER.debug("[AI Quota DEBUG] 9Router | Found %d connections", len(connections))
+                        async with session.post(
+                            f"{base_url}/api/auth/login",
+                            json={"password": password},
+                            headers={
+                                "Content-Type": "application/json",
+                                "Accept": "application/json",
+                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                            },
+                            timeout=30
+                        ) as login_response:
+                            login_text = await login_response.text()
+                            _LOGGER.debug("[AI Quota] 9Router login response status: %d", login_response.status)
+                            _LOGGER.debug("[AI Quota] 9Router login response body: %s", login_text[:500])
+                            
+                            if not login_response.ok:
+                                raise UpdateFailed(f"9Router login failed {login_response.status}: {login_text[:200]}")
+                            
+                            _LOGGER.debug("[AI Quota] 9Router login successful, cookies: %s", session.cookie_jar)
+                        
+                        # Now get providers list with authentication
+                        async with session.get(
+                            f"{base_url}/api/providers/client",
+                            headers={
+                                "Accept": "application/json",
+                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                            },
+                            timeout=30
+                        ) as providers_response:
+                            if not providers_response.ok:
+                                text = await providers_response.text()
+                                raise UpdateFailed(f"9Router providers API error {providers_response.status}: {text[:200]}")
+                            
+                            providers_data = await providers_response.json()
+                            connections = providers_data.get("connections", [])
+                            _LOGGER.debug("[AI Quota DEBUG] 9Router | Found %d connections", len(connections))
                     
                     # Step 3: Fetch quota for the specific provider (match by provider name or use first active)
                     target_connection = None

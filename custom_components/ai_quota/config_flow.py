@@ -56,24 +56,19 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            data_source = user_input.get(CONF_DATA_SOURCE, "cliproxy")
+            # No validation needed - password is optional for both CLIProxy and 9Router
             
-            # Validate 9Router requires password
-            if data_source == "9router" and not user_input.get(CONF_API_KEY):
-                errors["base"] = "password_required"
+            # Generate a unique_id
+            unique_id = f"{user_input[CONF_DATA_SOURCE]}_{user_input[CONF_PROVIDER]}_{user_input[CONF_AUTH_INDEX]}"
             
-            if not errors:
-                # Generate a unique_id
-                unique_id = f"{user_input[CONF_DATA_SOURCE]}_{user_input[CONF_PROVIDER]}_{user_input[CONF_AUTH_INDEX]}"
-                
-                await self.async_set_unique_id(unique_id)
-                self._abort_if_unique_id_configured()
-                
-                # Create the entry title
-                data_source_name = DATA_SOURCES.get(user_input[CONF_DATA_SOURCE], user_input[CONF_DATA_SOURCE])
-                provider = PROVIDERS.get(user_input[CONF_PROVIDER], user_input[CONF_PROVIDER])
-                title = f"{data_source_name} - {provider} (Auth: {user_input[CONF_AUTH_INDEX]})"
-                return self.async_create_entry(title=title, data=user_input)
+            await self.async_set_unique_id(unique_id)
+            self._abort_if_unique_id_configured()
+            
+            # Create the entry title
+            data_source_name = DATA_SOURCES.get(user_input[CONF_DATA_SOURCE], user_input[CONF_DATA_SOURCE])
+            provider = PROVIDERS.get(user_input[CONF_PROVIDER], user_input[CONF_PROVIDER])
+            title = f"{data_source_name} - {provider} (Auth: {user_input[CONF_AUTH_INDEX]})"
+            return self.async_create_entry(title=title, data=user_input)
 
         # Schema for API Proxy sources
         api_proxy_sources = [
