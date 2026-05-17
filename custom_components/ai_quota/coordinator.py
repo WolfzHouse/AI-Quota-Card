@@ -607,6 +607,8 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
             try:
                 async with aiohttp.ClientSession() as session:
                     # Step 1: Login to get session cookie (9router only requires password)
+                    _LOGGER.debug("[AI Quota] 9Router attempting login to %s", base_url)
+                    
                     async with session.post(
                         f"{base_url}/api/auth/login",
                         json={"password": password},
@@ -617,12 +619,15 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                         },
                         timeout=30
                     ) as login_response:
+                        login_text = await login_response.text()
+                        _LOGGER.debug("[AI Quota] 9Router login response status: %d", login_response.status)
+                        _LOGGER.debug("[AI Quota] 9Router login response body: %s", login_text[:500])
+                        
                         if not login_response.ok:
-                            text = await login_response.text()
-                            raise UpdateFailed(f"9Router login failed {login_response.status}: {text[:200]}")
+                            raise UpdateFailed(f"9Router login failed {login_response.status}: {login_text[:200]}")
                         
                         # Session cookie is now stored in the session object
-                        _LOGGER.debug("[AI Quota] 9Router login successful")
+                        _LOGGER.debug("[AI Quota] 9Router login successful, cookies: %s", session.cookie_jar)
                     
                     # Step 2: Get list of all providers/connections
                     async with session.get(
