@@ -693,16 +693,21 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                     # Step 3: Fetch quota for the specific provider using auth_index
                     target_connection = None
                     
-                    # Filter connections by provider name
+                    # Filter connections by provider name (exact match)
                     matching_connections = []
                     for conn in connections:
                         if not conn.get("isActive", False):
                             continue
                         
                         conn_provider = conn.get("provider", "").lower()
-                        # Match provider name (e.g., "claude", "codex")
-                        if provider.lower() in conn_provider or conn_provider in provider.lower():
+                        config_provider = provider.lower()
+                        
+                        # Exact match or check if config provider is in the connection provider
+                        # e.g., "claude" matches "claude" or "anthropic-compatible-..."
+                        if conn_provider == config_provider or config_provider in conn_provider:
                             matching_connections.append(conn)
+                            _LOGGER.debug("[AI Quota DEBUG] 9Router | Matched connection: provider='%s', name='%s'", 
+                                          conn_provider, conn.get("name"))
                     
                     _LOGGER.debug("[AI Quota DEBUG] 9Router | Found %d matching connections for provider '%s'", 
                                   len(matching_connections), provider)
