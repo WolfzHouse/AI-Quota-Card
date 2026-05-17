@@ -3,21 +3,45 @@
     "step": {
       "user": {
         "title": "Add AI Web Quota Integration",
-        "description": "Configure the data source, provider, and authentication parameters.\n\n**CLIProxy**: Uses auth index only (leave password empty)\n**Trouter**: Requires API key in password field\n**9Router**: Requires password and base URL",
+        "description": "Choose your connection type",
+        "menu_options": {
+          "api_proxy": "API Proxy (CLIProxy / 9Router)",
+          "trouter": "Trouter.click"
+        }
+      },
+      "api_proxy": {
+        "title": "Configure API Proxy Connection",
+        "description": "**CLIProxy**: Uses auth index from your CLIProxy account (leave password empty)\n**9Router**: Requires password and base URL (e.g., http://192.168.1.107:20128)",
         "data": {
-          "data_source": "Data Source",
+          "data_source": "API Proxy Type",
           "provider": "Provider Name",
           "auth_index": "Auth Index",
           "proxy_url": "Base URL",
-          "api_key": "Password / API Key",
+          "api_key": "Password (9Router only)",
           "account_name": "Account Name (Optional)"
         },
         "data_description": {
-          "data_source": "Select your quota data source",
+          "data_source": "Select CLIProxy or 9Router",
           "provider": "AI provider to monitor",
           "auth_index": "Authentication index (0, 1, 2, etc.)",
           "proxy_url": "For CLIProxy: https://ai.wolfz.shop/v0/management/api-call | For 9Router: http://192.168.1.107:20128",
-          "api_key": "For CLIProxy: Leave empty | For Trouter: API Key | For 9Router: Password",
+          "api_key": "Required for 9Router, leave empty for CLIProxy",
+          "account_name": "Optional: Display name for this account"
+        }
+      },
+      "trouter": {
+        "title": "Configure Trouter.click Connection",
+        "description": "Enter your Trouter.click API key from https://trouter.click",
+        "data": {
+          "provider": "Provider Name",
+          "auth_index": "Auth Index",
+          "api_key": "API Key",
+          "account_name": "Account Name (Optional)"
+        },
+        "data_description": {
+          "provider": "AI provider to monitor",
+          "auth_index": "Authentication index (0, 1, 2, etc.)",
+          "api_key": "Your Trouter.click API key",
           "account_name": "Optional: Display name for this account"
         }
       }
@@ -38,17 +62,15 @@
     "step": {
       "init": {
         "title": "Edit AI Web Quota Settings",
-        "description": "Update the data source, password/API key, account name, or base URL.",
+        "description": "Update connection settings",
         "data": {
-          "data_source": "Data Source",
           "proxy_url": "Base URL",
           "api_key": "Password / API Key",
           "account_name": "Account Name (Optional)"
         },
         "data_description": {
-          "data_source": "Select your quota data source",
-          "proxy_url": "For CLIProxy: API endpoint | For 9Router: Base URL",
-          "api_key": "For CLIProxy: Leave empty | For Trouter: API Key | For 9Router: Password",
+          "proxy_url": "Base URL for API Proxy connections",
+          "api_key": "Password for 9Router or API Key for Trouter",
           "account_name": "Optional: Display name for this account"
         }
       }
