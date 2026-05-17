@@ -690,10 +690,11 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                             connections = providers_data.get("connections", [])
                             _LOGGER.debug("[AI Quota DEBUG] 9Router | Found %d connections", len(connections))
                     
-                    # Step 3: Fetch quota for the specific provider (match by provider name or use first active)
+                    # Step 3: Fetch quota for the specific provider using auth_index
                     target_connection = None
                     
-                    # Try to find connection matching the configured provider
+                    # Filter connections by provider name
+                    matching_connections = []
                     for conn in connections:
                         if not conn.get("isActive", False):
                             continue
@@ -701,14 +702,28 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                         conn_provider = conn.get("provider", "").lower()
                         # Match provider name (e.g., "claude", "codex")
                         if provider.lower() in conn_provider or conn_provider in provider.lower():
-                            target_connection = conn
-                            break
+                            matching_connections.append(conn)
+                    
+                    _LOGGER.debug("[AI Quota DEBUG] 9Router | Found %d matching connections for provider '%s'", 
+                                  len(matching_connections), provider)
+                    
+                    # Use auth_index to select which account (0 = first, 1 = second, etc.)
+                    auth_idx = int(auth_index) if auth_index else 0
+                    if auth_idx < len(matching_connections):
+                        target_connection = matching_connections[auth_idx]
+                        _LOGGER.debug("[AI Quota DEBUG] 9Router | Selected connection at index %d: %s", 
+                                      auth_idx, target_connection.get("name"))
+                    elif matching_connections:
+                        # If auth_index is out of range, use the first one
+                        target_connection = matching_connections[0]
+                        _LOGGER.warning("[AI Quota] 9Router | Auth index %d out of range, using first connection", auth_idx)
                     
                     # If no match found, use the first active connection
                     if not target_connection:
                         for conn in connections:
                             if conn.get("isActive", False):
                                 target_connection = conn
+                                _LOGGER.warning("[AI Quota] 9Router | No matching provider found, using first active connection")
                                 break
                     
                     if not target_connection:
