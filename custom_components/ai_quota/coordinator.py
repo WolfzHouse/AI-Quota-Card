@@ -406,9 +406,9 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                 if not isinstance(quota_data, dict):
                     continue
                 
-                used = int(quota_data.get("used", 0))
-                total = int(quota_data.get("total", 100))
-                remaining = int(quota_data.get("remaining", 0))
+                used = float(quota_data.get("used", 0))
+                total = float(quota_data.get("total", 100))
+                remaining = float(quota_data.get("remaining", 0))
                 remaining_pct = int(quota_data.get("remainingPercentage", 0))
                 reset_at = quota_data.get("resetAt", "")
                 unlimited = quota_data.get("unlimited", False)
@@ -416,15 +416,24 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                 # Calculate percentage (remaining)
                 pct = remaining_pct if remaining_pct is not None else 0
                 
-                # Format reset time
+                # Format reset time and expiration countdown
                 reset_str = ""
+                expires_in = ""
                 if reset_at:
                     try:
                         from datetime import datetime
-                        dt = datetime.fromisoformat(reset_at.replace("Z", "+00:00"))
-                        # Calculate time remaining
-                        now = datetime.now(dt.tzinfo)
-                        diff = dt - now
+                        # Parse the reset time (UTC)
+                        dt_utc = datetime.fromisoformat(reset_at.replace("Z", "+00:00"))
+                        
+                        # Convert to Home Assistant timezone
+                        dt_local = dt_utc.astimezone()
+                        
+                        # Format as "yyyy-mm-dd hh:mm:ss"
+                        reset_str = dt_local.strftime("%Y-%m-%d %H:%M:%S")
+                        
+                        # Calculate time remaining for "Expires in" display
+                        now = datetime.now(dt_local.tzinfo)
+                        diff = dt_local - now
                         
                         if diff.total_seconds() > 0:
                             days = diff.days
@@ -432,30 +441,36 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                             minutes = (diff.seconds % 3600) // 60
                             
                             if days > 0:
-                                reset_str = f"in {days}d {hours}h {minutes}m"
+                                expires_in = f"{days}d {hours}h {minutes}m"
                             elif hours > 0:
-                                reset_str = f"in {hours}h {minutes}m"
+                                expires_in = f"{hours}h {minutes}m"
                             else:
-                                reset_str = f"in {minutes}m"
-                    except Exception:
+                                expires_in = f"{minutes}m"
+                        else:
+                            expires_in = "Expired"
+                    except Exception as e:
+                        _LOGGER.warning("[AI Quota] Failed to parse reset time for 9router: %s", e)
                         reset_str = reset_at
+                        expires_in = ""
                 
                 # Format display name
                 display_name = quota_name.replace("(", "").replace(")", "").title()
                 
-                # Format usage info
-                usage_info = f"{used}/{total}"
-                if reset_str:
-                    usage_info = f"{usage_info} | Reset: {reset_str}"
-                elif unlimited:
-                    usage_info = f"{used} used (unlimited)"
+                # Format usage info - show actual dollar values
+                # The API returns values in dollars already (e.g., 0.21 used, 100 total)
+                usage_info = f"${used:.2f} / ${total:.2f}"
+                
+                if unlimited:
+                    usage_info = f"${used:.2f} used (unlimited)"
                 
                 models.append({
                     "name": display_name,
                     "percentage": pct,
-                    "resetTime": usage_info,
+                    "resetTime": reset_str,
+                    "expiresIn": expires_in,
                     "usage": used,
-                    "limit": total
+                    "limit": total,
+                    "usageDisplay": usage_info
                 })
             
             # Add extra usage info if available (for Claude Code plan)
@@ -466,16 +481,51 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                     monthly_limit = float(extra_usage.get("monthly_limit", 0))
                     utilization = float(extra_usage.get("utilization", 0))
                     currency = extra_usage.get("currency", "USD")
+                    reset_at_extra = extra_usage.get("resetAt", "")
                     
                     if monthly_limit > 0:
                         pct = max(0, min(100, round(100 - utilization)))
                         
+                        # Format reset time for extra usage
+                        reset_str_extra = ""
+                        expires_in_extra = ""
+                        if reset_at_extra:
+                            try:
+                                from datetime import datetime
+                                dt_utc = datetime.fromisoformat(reset_at_extra.replace("Z", "+00:00"))
+                                dt_local = dt_utc.astimezone()
+                                reset_str_extra = dt_local.strftime("%Y-%m-%d %H:%M:%S")
+                                
+                                now = datetime.now(dt_local.tzinfo)
+                                diff = dt_local - now
+                                
+                                if diff.total_seconds() > 0:
+                                    days = diff.days
+                                    hours = diff.seconds // 3600
+                                    minutes = (diff.seconds % 3600) // 60
+                                    
+                                    if days > 0:
+                                        expires_in_extra = f"{days}d {hours}h {minutes}m"
+                                    elif hours > 0:
+                                        expires_in_extra = f"{hours}h {minutes}m"
+                                    else:
+                                        expires_in_extra = f"{minutes}m"
+                                else:
+                                    expires_in_extra = "Expired"
+                            except Exception:
+                                pass
+                        
+                        used_dollars = used_credits / 100
+                        limit_dollars = monthly_limit / 100
+                        
                         models.append({
                             "name": "Extra Usage",
                             "percentage": pct,
-                            "resetTime": f"{currency} {used_credits:.2f} / {monthly_limit:.2f}",
-                            "usage": used_credits,
-                            "limit": monthly_limit
+                            "resetTime": reset_str_extra,
+                            "expiresIn": expires_in_extra,
+                            "usage": used_dollars,
+                            "limit": limit_dollars,
+                            "usageDisplay": f"${used_dollars:.2f} / ${limit_dollars:.2f}"
                         })
             
             if models:

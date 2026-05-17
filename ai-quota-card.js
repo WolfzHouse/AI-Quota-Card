@@ -106,6 +106,7 @@ class AIQuotaCard extends HTMLElement {
     this.data.plan = firstEntity.attributes.plan || 'Free';
     this.config.email = firstEntity.attributes.email || 'Unknown';
 
+
     const groupsMap = {};
 
     relevantEntities.forEach(e => {
@@ -123,11 +124,21 @@ class AIQuotaCard extends HTMLElement {
       }
 
       if (!groupsMap[groupName].modelsMap[modelName]) {
-        groupsMap[groupName].modelsMap[modelName] = { name: modelName, percentage: 0, resetTime: '' };
+        groupsMap[groupName].modelsMap[modelName] = { 
+          name: modelName, 
+          percentage: 0, 
+          resetTime: '',
+          usageDisplay: '',
+          expiresIn: ''
+        };
       }
 
       if (e.attributes.unit_of_measurement === '%') {
         groupsMap[groupName].modelsMap[modelName].percentage = parseFloat(e.state) || 0;
+      } else if (e.attributes.attribute_type === 'usage_display') {
+        groupsMap[groupName].modelsMap[modelName].usageDisplay = e.state === 'unknown' ? '' : e.state;
+      } else if (e.attributes.attribute_type === 'expires_in') {
+        groupsMap[groupName].modelsMap[modelName].expiresIn = e.state === 'unknown' ? '' : e.state;
       } else {
         groupsMap[groupName].modelsMap[modelName].resetTime = e.state === 'unknown' ? '' : e.state;
       }
@@ -692,6 +703,8 @@ class AIQuotaCard extends HTMLElement {
             </div>
         `;
         
+        const is9Router = provider && provider.toLowerCase() === '9router';
+        
         if (isAntigravity) {
            contentHtml += `<div class="sub-items">`;
            group.models.forEach(m => {
@@ -710,6 +723,31 @@ class AIQuotaCard extends HTMLElement {
                   <div class="progress-bar" style="height: 4px;">
                      <div class="progress-fill ${mbClass}" style="width: ${m.percentage}%"></div>
                   </div>
+                </div>
+              `;
+           });
+           contentHtml += `</div>`;
+        } else if (is9Router) {
+           // Special rendering for 9router with usage display, reset time, and expires in
+           contentHtml += `<div class="sub-items">`;
+           group.models.forEach(m => {
+              let mcTheme = getColorTheme(m.percentage);
+              let mpClass = `pct-${mcTheme}`;
+              let mbClass = `bg-${mcTheme}`;
+              contentHtml += `
+                <div class="group">
+                  <div class="group-header">
+                    <div class="group-title" style="font-weight: 400; font-size: 12px;">${m.name}</div>
+                    <div class="group-stats">
+                      <span class="${mpClass}">${m.percentage}%</span>
+                      ${m.usageDisplay ? `<span class="group-reset" style="font-size:10px">${m.usageDisplay}</span>` : ''}
+                    </div>
+                  </div>
+                  <div class="progress-bar" style="height: 4px;">
+                     <div class="progress-fill ${mbClass}" style="width: ${m.percentage}%"></div>
+                  </div>
+                  ${m.resetTime ? `<div style="font-size: 10px; color: var(--text-muted); margin-top: 4px; padding-left: 4px;">Reset: ${m.resetTime}</div>` : ''}
+                  ${m.expiresIn ? `<div style="font-size: 10px; color: var(--text-muted); margin-top: 2px; padding-left: 4px;">Expires in: ${m.expiresIn}</div>` : ''}
                 </div>
               `;
            });

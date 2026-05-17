@@ -132,6 +132,8 @@ class AIQuotaMainSensor(CoordinatorEntity, SensorEntity):
                         "resetTime": model.get("resetTime"),
                         "usage": model.get("usage"),
                         "limit": model.get("limit"),
+                        "usageDisplay": model.get("usageDisplay"),
+                        "expiresIn": model.get("expiresIn"),
                     }
                     group_info["models"].append(model_info)
                 groups_summary.append(group_info)
