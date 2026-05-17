@@ -36,58 +36,34 @@ PROVIDER_OPTIONS = [
     for key, name in PROVIDERS.items()
 ]
 
-
-def get_schema_for_data_source(data_source: str, defaults: dict[str, Any] | None = None) -> vol.Schema:
-    """Generate schema based on data source."""
-    if defaults is None:
-        defaults = {}
-    
-    base_fields = {
-        vol.Required(CONF_DATA_SOURCE, default=defaults.get(CONF_DATA_SOURCE, "cliproxy")): selector.SelectSelector(
+STEP_USER_DATA_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_DATA_SOURCE, default="cliproxy"): selector.SelectSelector(
             selector.SelectSelectorConfig(
                 options=DATA_SOURCE_OPTIONS,
                 mode=selector.SelectSelectorMode.DROPDOWN,
             )
         ),
-        vol.Required(CONF_PROVIDER, default=defaults.get(CONF_PROVIDER, "")): selector.SelectSelector(
+        vol.Required(CONF_PROVIDER): selector.SelectSelector(
             selector.SelectSelectorConfig(
                 options=PROVIDER_OPTIONS,
                 mode=selector.SelectSelectorMode.DROPDOWN,
             )
         ),
-        vol.Required(CONF_AUTH_INDEX, default=defaults.get(CONF_AUTH_INDEX, "0")): str,
+        vol.Required(CONF_AUTH_INDEX, default="0"): str,
+        vol.Optional(CONF_PROXY_URL, default="http://localhost:20128"): str,
+        vol.Optional(CONF_API_KEY, default=""): selector.TextSelector(
+            selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+        ),
+        vol.Optional(CONF_ACCOUNT_NAME, default=""): str,
     }
-    
-    # Add data-source-specific fields
-    if data_source == "cliproxy":
-        base_fields[vol.Required(CONF_PROXY_URL, default=defaults.get(CONF_PROXY_URL, DEFAULT_PROXY_URL))] = str
-        base_fields[vol.Optional(CONF_ACCOUNT_NAME, default=defaults.get(CONF_ACCOUNT_NAME, ""))] = str
-        # CLIProxy doesn't need API key - it uses provider auth index
-        
-    elif data_source == "trouter":
-        base_fields[vol.Required(CONF_API_KEY, default=defaults.get(CONF_API_KEY, ""))] = selector.TextSelector(
-            selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
-        )
-        base_fields[vol.Optional(CONF_ACCOUNT_NAME, default=defaults.get(CONF_ACCOUNT_NAME, ""))] = str
-        
-    elif data_source == "9router":
-        base_fields[vol.Required(CONF_PROXY_URL, default=defaults.get(CONF_PROXY_URL, "http://localhost:20128"))] = str
-        base_fields[vol.Required(CONF_API_KEY, default=defaults.get(CONF_API_KEY, ""))] = selector.TextSelector(
-            selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
-        )
-        base_fields[vol.Optional(CONF_ACCOUNT_NAME, default=defaults.get(CONF_ACCOUNT_NAME, ""))] = str
-    
-    return vol.Schema(base_fields)
+)
 
 
 class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for AI Web Quota."""
 
     VERSION = 1
-
-    def __init__(self):
-        """Initialize the config flow."""
-        self._data_source = "cliproxy"
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -121,20 +97,9 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 provider = PROVIDERS.get(user_input[CONF_PROVIDER], user_input[CONF_PROVIDER])
                 title = f"{data_source_name} - {provider} (Auth: {user_input[CONF_AUTH_INDEX]})"
                 return self.async_create_entry(title=title, data=user_input)
-        
-        # Update data source if changed
-        if user_input and CONF_DATA_SOURCE in user_input:
-            self._data_source = user_input[CONF_DATA_SOURCE]
-        
-        schema = get_schema_for_data_source(self._data_source, user_input or {})
-        
+
         return self.async_show_form(
-            step_id="user", 
-            data_schema=schema, 
-            errors=errors,
-            description_placeholders={
-                "data_source": DATA_SOURCES.get(self._data_source, self._data_source)
-            }
+            step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
 
     @staticmethod
@@ -165,7 +130,20 @@ class AIQuotaOptionsFlowHandler(config_entries.OptionsFlow):
         if hasattr(self.config_entry, "options") and self.config_entry.options:
             options.update(self.config_entry.options)
 
-        data_source = options.get(CONF_DATA_SOURCE, "cliproxy")
-        schema = get_schema_for_data_source(data_source, options)
+        schema = vol.Schema(
+            {
+                vol.Optional(CONF_DATA_SOURCE, default=str(options.get(CONF_DATA_SOURCE) or "cliproxy")): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=DATA_SOURCE_OPTIONS,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(CONF_PROXY_URL, default=str(options.get(CONF_PROXY_URL) or "http://localhost:20128")): str,
+                vol.Optional(CONF_API_KEY, default=str(options.get(CONF_API_KEY) or "")): selector.TextSelector(
+                    selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+                ),
+                vol.Optional(CONF_ACCOUNT_NAME, default=str(options.get(CONF_ACCOUNT_NAME) or "")): str,
+            }
+        )
 
         return self.async_show_form(step_id="init", data_schema=schema)
