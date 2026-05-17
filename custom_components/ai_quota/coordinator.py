@@ -396,6 +396,92 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
             if models:
                 items.append({"name": "Trouter Quota", "models": models})
 
+        elif provider == "9router":
+            models = []
+            
+            # Parse quotas from 9router response
+            quotas = data.get("quotas") or {}
+            
+            for quota_name, quota_data in quotas.items():
+                if not isinstance(quota_data, dict):
+                    continue
+                
+                used = int(quota_data.get("used", 0))
+                total = int(quota_data.get("total", 100))
+                remaining = int(quota_data.get("remaining", 0))
+                remaining_pct = int(quota_data.get("remainingPercentage", 0))
+                reset_at = quota_data.get("resetAt", "")
+                unlimited = quota_data.get("unlimited", False)
+                
+                # Calculate percentage (remaining)
+                pct = remaining_pct if remaining_pct is not None else 0
+                
+                # Format reset time
+                reset_str = ""
+                if reset_at:
+                    try:
+                        from datetime import datetime
+                        dt = datetime.fromisoformat(reset_at.replace("Z", "+00:00"))
+                        # Calculate time remaining
+                        now = datetime.now(dt.tzinfo)
+                        diff = dt - now
+                        
+                        if diff.total_seconds() > 0:
+                            days = diff.days
+                            hours = diff.seconds // 3600
+                            minutes = (diff.seconds % 3600) // 60
+                            
+                            if days > 0:
+                                reset_str = f"in {days}d {hours}h {minutes}m"
+                            elif hours > 0:
+                                reset_str = f"in {hours}h {minutes}m"
+                            else:
+                                reset_str = f"in {minutes}m"
+                    except Exception:
+                        reset_str = reset_at
+                
+                # Format display name
+                display_name = quota_name.replace("(", "").replace(")", "").title()
+                
+                # Format usage info
+                usage_info = f"{used}/{total}"
+                if reset_str:
+                    usage_info = f"{usage_info} | Reset: {reset_str}"
+                elif unlimited:
+                    usage_info = f"{used} used (unlimited)"
+                
+                models.append({
+                    "name": display_name,
+                    "percentage": pct,
+                    "resetTime": usage_info,
+                    "usage": used,
+                    "limit": total
+                })
+            
+            # Add extra usage info if available (for Claude Code plan)
+            extra_usage = data.get("extraUsage")
+            if extra_usage and isinstance(extra_usage, dict):
+                if extra_usage.get("is_enabled"):
+                    used_credits = float(extra_usage.get("used_credits", 0))
+                    monthly_limit = float(extra_usage.get("monthly_limit", 0))
+                    utilization = float(extra_usage.get("utilization", 0))
+                    currency = extra_usage.get("currency", "USD")
+                    
+                    if monthly_limit > 0:
+                        pct = max(0, min(100, round(100 - utilization)))
+                        
+                        models.append({
+                            "name": "Extra Usage",
+                            "percentage": pct,
+                            "resetTime": f"{currency} {used_credits:.2f} / {monthly_limit:.2f}",
+                            "usage": used_credits,
+                            "limit": monthly_limit
+                        })
+            
+            if models:
+                plan_name = data.get("plan", "9Router")
+                items.append({"name": f"{plan_name} Quota", "models": models})
+
         return items
 
 
@@ -457,41 +543,112 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.error("[AI Quota CRASH] Trouter.click\n%s", traceback.format_exc())
                 raise UpdateFailed(f"Error communicating with Trouter API: {err}")
 
-        # Handle 9Router data source - direct API call
+        # Handle 9Router data source - direct API call with session authentication
         elif data_source == "9router":
-            if not api_key:
-                raise UpdateFailed("API key is required for 9Router data source")
+            # For 9router, api_key is actually the password, and account_name is the username
+            password = api_key
+            username = cfg_data.get(CONF_ACCOUNT_NAME, "")
+            
+            if not password or not username:
+                raise UpdateFailed("Username (Account Name) and Password (API Key) are required for 9Router data source")
+            
+            # Get base URL from proxy_url field (default to localhost)
+            base_url = proxy_url if proxy_url and proxy_url != DEFAULT_PROXY_URL else "http://localhost:20128"
             
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        "https://9router.com/api/proxy/me?view=dashboard",
+                    # Step 1: Login to get session cookie
+                    async with session.post(
+                        f"{base_url}/api/auth/login",
+                        json={"username": username, "password": password},
                         headers={
-                            "Authorization": f"Bearer {api_key}",
-                            "Accept": "*/*",
+                            "Content-Type": "application/json",
+                            "Accept": "application/json",
                             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                         },
                         timeout=30
-                    ) as response:
-                        if not response.ok:
-                            text = await response.text()
-                            raise UpdateFailed(f"9Router API error {response.status}: {text[:200]}")
+                    ) as login_response:
+                        if not login_response.ok:
+                            text = await login_response.text()
+                            raise UpdateFailed(f"9Router login failed {login_response.status}: {text[:200]}")
                         
-                        raw_body = await response.json()
+                        # Session cookie is now stored in the session object
+                        _LOGGER.debug("[AI Quota] 9Router login successful")
+                    
+                    # Step 2: Get list of all providers/connections
+                    async with session.get(
+                        f"{base_url}/api/providers/client",
+                        headers={
+                            "Accept": "application/json",
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                        },
+                        timeout=30
+                    ) as providers_response:
+                        if not providers_response.ok:
+                            text = await providers_response.text()
+                            raise UpdateFailed(f"9Router providers API error {providers_response.status}: {text[:200]}")
                         
-                        _LOGGER.warning("[AI Quota DEBUG] 9Router | Keys: %s | Body: %s",
-                                        list(raw_body.keys()), json.dumps(raw_body)[:800])
+                        providers_data = await providers_response.json()
+                        connections = providers_data.get("connections", [])
                         
-                        parsed_items = self._parse_provider_data(provider, raw_body)
+                        _LOGGER.debug("[AI Quota DEBUG] 9Router | Found %d connections", len(connections))
+                    
+                    # Step 3: Fetch quota for the specific provider (match by provider name or use first active)
+                    target_connection = None
+                    
+                    # Try to find connection matching the configured provider
+                    for conn in connections:
+                        if not conn.get("isActive", False):
+                            continue
                         
-                        # Extract account info
-                        service_name = raw_body.get("sub_service_type_name", "Unknown")
-                        key_preview = raw_body.get("key_preview", "Unknown")
+                        conn_provider = conn.get("provider", "").lower()
+                        # Match provider name (e.g., "claude", "codex")
+                        if provider.lower() in conn_provider or conn_provider in provider.lower():
+                            target_connection = conn
+                            break
+                    
+                    # If no match found, use the first active connection
+                    if not target_connection:
+                        for conn in connections:
+                            if conn.get("isActive", False):
+                                target_connection = conn
+                                break
+                    
+                    if not target_connection:
+                        raise UpdateFailed("No active 9Router connections found")
+                    
+                    connection_id = target_connection.get("id")
+                    connection_name = target_connection.get("name", "Unknown")
+                    connection_email = target_connection.get("email") or connection_name
+                    
+                    _LOGGER.debug("[AI Quota DEBUG] 9Router | Using connection: %s (%s)", connection_name, connection_id)
+                    
+                    # Step 4: Fetch quota for this connection
+                    async with session.get(
+                        f"{base_url}/api/usage/{connection_id}",
+                        headers={
+                            "Accept": "application/json",
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                        },
+                        timeout=30
+                    ) as quota_response:
+                        if not quota_response.ok:
+                            text = await quota_response.text()
+                            raise UpdateFailed(f"9Router quota API error {quota_response.status}: {text[:200]}")
                         
-                        configured_account = cfg_data.get(CONF_ACCOUNT_NAME)
+                        raw_body = await quota_response.json()
+                        
+                        _LOGGER.warning("[AI Quota DEBUG] 9Router | Connection: %s | Keys: %s | Body: %s",
+                                        connection_name, list(raw_body.keys()), json.dumps(raw_body)[:800])
+                        
+                        # Parse using 9router parser
+                        parsed_items = self._parse_provider_data("9router", raw_body)
+                        
+                        plan_name = raw_body.get("plan", "9Router")
+                        
                         return {
-                            "plan": service_name,
-                            "email": configured_account or key_preview,
+                            "plan": plan_name,
+                            "email": connection_email,
                             "items": parsed_items,
                             "api_payload": raw_body
                         }
