@@ -11,8 +11,6 @@ class AIQuotaSummaryCard extends HTMLElement {
     
     if (!this.content) {
       const card = document.createElement('ha-card');
-      card.style.cursor = 'pointer';
-      card.addEventListener('click', () => this.handleRefresh());
       
       this.content = document.createElement('div');
       this.content.style.padding = '16px';
@@ -23,17 +21,30 @@ class AIQuotaSummaryCard extends HTMLElement {
     this.render();
   }
 
-  handleRefresh() {
+  handleRefresh(e) {
+    e.stopPropagation();
     const entityId = this.config.entity;
     this._hass.callService('homeassistant', 'update_entity', {
       entity_id: entityId
     });
     
     // Visual feedback
-    this.content.style.opacity = '0.6';
+    const button = e.currentTarget;
+    button.style.transform = 'rotate(360deg)';
+    button.style.transition = 'transform 0.5s ease';
     setTimeout(() => {
-      this.content.style.opacity = '1';
+      button.style.transform = 'rotate(0deg)';
     }, 500);
+  }
+
+  handleCardClick() {
+    const entityId = this.config.entity;
+    const event = new Event('hass-more-info', {
+      bubbles: true,
+      composed: true,
+    });
+    event.detail = { entityId };
+    this.dispatchEvent(event);
   }
 
   render() {
@@ -123,6 +134,7 @@ class AIQuotaSummaryCard extends HTMLElement {
       <style>
         .quota-card-9router {
           font-family: var(--paper-font-body1_-_font-family);
+          cursor: pointer;
         }
         .quota-header-9router {
           display: flex;
@@ -149,15 +161,17 @@ class AIQuotaSummaryCard extends HTMLElement {
           color: var(--secondary-text-color);
           margin-top: 2px;
         }
-        .refresh-icon {
+        .refresh-button {
           font-size: 20px;
           color: var(--secondary-text-color);
           cursor: pointer;
           padding: 8px;
           border-radius: 50%;
           transition: background-color 0.2s;
+          background: none;
+          border: none;
         }
-        .refresh-icon:hover {
+        .refresh-button:hover {
           background-color: var(--divider-color);
         }
         .quota-item {
@@ -211,19 +225,30 @@ class AIQuotaSummaryCard extends HTMLElement {
         .quota-expires {
           color: var(--secondary-text-color);
         }
+        .card-hint {
+          text-align: center;
+          font-size: 11px;
+          color: var(--secondary-text-color);
+          margin-top: 8px;
+          opacity: 0.7;
+        }
       </style>
       
-      <div class="quota-card-9router">
+      <div class="quota-card-9router" onclick="this.getRootNode().host.handleCardClick()">
         <div class="quota-header-9router">
           <div class="provider-icon">${icon}</div>
           <div class="provider-info">
             <div class="provider-name">${provider}</div>
             <div class="provider-email">${email}</div>
           </div>
-          <div class="refresh-icon" title="Tap card to refresh">🔄</div>
+          <button class="refresh-button" onclick="event.stopPropagation(); this.getRootNode().host.handleRefresh(event)" title="Refresh data">
+            🔄
+          </button>
         </div>
         
         ${quotaItemsHTML}
+        
+        <div class="card-hint">Tap card to view history</div>
       </div>
     `;
   }
@@ -336,6 +361,7 @@ class AIQuotaSummaryCard extends HTMLElement {
       <style>
         .quota-card {
           font-family: var(--paper-font-body1_-_font-family);
+          cursor: pointer;
         }
         .quota-header {
           display: flex;
@@ -352,6 +378,19 @@ class AIQuotaSummaryCard extends HTMLElement {
           font-size: 12px;
           color: var(--secondary-text-color);
           margin-top: 4px;
+        }
+        .refresh-button {
+          font-size: 20px;
+          color: var(--secondary-text-color);
+          cursor: pointer;
+          padding: 8px;
+          border-radius: 50%;
+          transition: background-color 0.2s;
+          background: none;
+          border: none;
+        }
+        .refresh-button:hover {
+          background-color: var(--divider-color);
         }
         .quota-main {
           text-align: center;
@@ -402,7 +441,7 @@ class AIQuotaSummaryCard extends HTMLElement {
           color: var(--secondary-text-color);
           margin: 8px 0;
         }
-        .refresh-hint {
+        .card-hint {
           text-align: center;
           font-size: 11px;
           color: var(--secondary-text-color);
@@ -411,12 +450,15 @@ class AIQuotaSummaryCard extends HTMLElement {
         }
       </style>
       
-      <div class="quota-card">
+      <div class="quota-card" onclick="this.getRootNode().host.handleCardClick()">
         <div class="quota-header">
           <div>
             <div class="service-type">${serviceType.toUpperCase()} ${subServiceName ? '- ' + subServiceName : ''}</div>
             <div class="api-key">${keyPreview}</div>
           </div>
+          <button class="refresh-button" onclick="event.stopPropagation(); this.getRootNode().host.handleRefresh(event)" title="Refresh data">
+            🔄
+          </button>
         </div>
         
         <div class="quota-main">
@@ -454,7 +496,7 @@ class AIQuotaSummaryCard extends HTMLElement {
           ` : ''}
         </div>
         
-        <div class="refresh-hint">Tap card to refresh</div>
+        <div class="card-hint">Tap card to view history</div>
       </div>
     `;
   }
@@ -471,6 +513,6 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: 'ai-quota-summary-card',
   name: 'AI Quota Summary Card',
-  description: 'Display AI quota information for Trouter and 9Router',
+  description: 'Display AI quota information for Trouter and 9Router with history',
   preview: true,
 });
