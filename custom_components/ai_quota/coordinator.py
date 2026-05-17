@@ -545,22 +545,21 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Handle 9Router data source - direct API call with session authentication
         elif data_source == "9router":
-            # For 9router, api_key is actually the password, and account_name is the username
+            # For 9router, api_key is the password (no username required)
             password = api_key
-            username = cfg_data.get(CONF_ACCOUNT_NAME, "")
             
-            if not password or not username:
-                raise UpdateFailed("Username (Account Name) and Password (API Key) are required for 9Router data source")
+            if not password:
+                raise UpdateFailed("Password (API Key) is required for 9Router data source")
             
             # Get base URL from proxy_url field (default to localhost)
             base_url = proxy_url if proxy_url and proxy_url != DEFAULT_PROXY_URL else "http://localhost:20128"
             
             try:
                 async with aiohttp.ClientSession() as session:
-                    # Step 1: Login to get session cookie
+                    # Step 1: Login to get session cookie (9router only requires password)
                     async with session.post(
                         f"{base_url}/api/auth/login",
-                        json={"username": username, "password": password},
+                        json={"password": password},
                         headers={
                             "Content-Type": "application/json",
                             "Accept": "application/json",
