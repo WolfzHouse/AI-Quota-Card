@@ -458,13 +458,13 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                 # Format display name
                 display_name = quota_name.replace("(", "").replace(")", "").title()
                 
-                # Format usage info - show actual dollar values
-                # The API returns values in dollars already (e.g., 0.21 used, 100 total)
-                usage_info = f"${used:.2f} / ${total:.2f}"
-                
+                # Format usage info - numeric only (no currency symbol)
+                # API values are already normalized to plan units.
+                usage_info = f"{used:.2f} / {total:.2f}"
+
                 if unlimited:
-                    usage_info = f"${used:.2f} used (unlimited)"
-                
+                    usage_info = f"{used:.2f} used (unlimited)"
+
                 models.append({
                     "name": display_name,
                     "percentage": pct,
@@ -527,7 +527,7 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                             "expiresIn": expires_in_extra,
                             "usage": used_dollars,
                             "limit": limit_dollars,
-                            "usageDisplay": f"${used_dollars:.2f} / ${limit_dollars:.2f}"
+                            "usageDisplay": f"{used_dollars:.2f} / {limit_dollars:.2f}"
                         })
             
             if models:

@@ -74,10 +74,10 @@ class AIQuotaSummaryCard extends HTMLElement {
           percentage = Math.round((dailyRemaining / dailyQuota) * 100);
         }
         
-        // Duration is in seconds, convert to hours
-        const usedHours = (dailySpentVal / 3600).toFixed(2);
-        const totalHours = (dailyQuota / 3600).toFixed(2);
-        quotaDisplay = `${usedHours}h / ${totalHours}h`;
+        // Trouter daily quota is reported in cents; display as USD
+        const usedUsd = (dailySpentVal / 100).toFixed(2);
+        const totalUsd = (dailyQuota / 100).toFixed(2);
+        quotaDisplay = `$${usedUsd} / $${totalUsd}`;
       }
       
     } else if (quota.type === 'usd') {
