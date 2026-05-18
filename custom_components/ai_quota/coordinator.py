@@ -16,10 +16,7 @@ from homeassistant.helpers.update_coordinator import (
 from .const import (
     DOMAIN,
     CONF_PROXY_URL,
-    CONF_PROVIDER,
-    CONF_AUTH_INDEX,
     CONF_API_KEY,
-    CONF_ACCOUNT_NAME,
     CONF_DATA_SOURCE,
     DEFAULT_PROXY_URL,
     DEFAULT_SCAN_INTERVAL_MINUTES
