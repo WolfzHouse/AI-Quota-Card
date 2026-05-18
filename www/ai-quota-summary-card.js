@@ -518,13 +518,28 @@ class AIQuotaSummaryCard extends HTMLElement {
   }
 }
 
-customElements.define('ai-quota-summary-card', AIQuotaSummaryCard);
+const CARD_TAG = 'ai-quota-summary-card';
+const ExistingCard = customElements.get(CARD_TAG);
+
+if (!ExistingCard) {
+  customElements.define(CARD_TAG, AIQuotaSummaryCard);
+} else {
+  // Upgrade existing tag in-place (keeps old tag, updates behavior)
+  ExistingCard.prototype.setConfig = AIQuotaSummaryCard.prototype.setConfig;
+  const hassDescriptor = Object.getOwnPropertyDescriptor(AIQuotaSummaryCard.prototype, 'hass');
+  if (hassDescriptor) {
+    Object.defineProperty(ExistingCard.prototype, 'hass', hassDescriptor);
+  }
+  ExistingCard.prototype.getCardSize = AIQuotaSummaryCard.prototype.getCardSize;
+}
 
 // Register the card with Home Assistant
 window.customCards = window.customCards || [];
-window.customCards.push({
-  type: 'ai-quota-summary-card',
-  name: 'AI Quota Summary Card',
-  description: 'Display AI quota information for Trouter and 9Router with history',
-  preview: true,
-});
+if (!window.customCards.some((card) => card.type === CARD_TAG)) {
+  window.customCards.push({
+    type: CARD_TAG,
+    name: 'AI Quota Summary Card',
+    description: 'Display AI quota information for Trouter and 9Router with history',
+    preview: true,
+  });
+}
