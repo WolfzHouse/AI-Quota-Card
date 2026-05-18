@@ -265,6 +265,14 @@ class AIQuotaSummaryCard extends HTMLElement {
             <div class="service-type">${serviceType.toUpperCase()} ${subServiceName ? '- ' + subServiceName : ''}</div>
             <div class="api-key">${keyPreview}</div>
           </div>
+          <div class="header-actions" style="display: flex; gap: 8px; color: var(--secondary-text-color);">
+            <div class="action-btn" id="refresh-btn" title="Refresh" style="cursor: pointer; padding: 4px; border-radius: 4px;">
+              <ha-icon icon="mdi:refresh" style="--mdc-icon-size: 20px;"></ha-icon>
+            </div>
+            <div class="action-btn" id="more-info-btn" title="More Info" style="cursor: pointer; padding: 4px; border-radius: 4px;">
+              <ha-icon icon="mdi:dots-vertical" style="--mdc-icon-size: 20px;"></ha-icon>
+            </div>
+          </div>
         </div>
         
         <div class="quota-main">
@@ -566,6 +574,7 @@ class AIQuotaSummaryCard extends HTMLElement {
         </div>
       </div>
     `;
+    }
     
     // Add event listeners
     const refreshBtn = this.content.querySelector('#refresh-btn');
@@ -588,7 +597,6 @@ class AIQuotaSummaryCard extends HTMLElement {
         event.detail = { entityId: this.config.entity };
         this.dispatchEvent(event);
       });
-    }
     }
   }
 
