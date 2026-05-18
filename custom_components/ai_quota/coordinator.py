@@ -406,13 +406,18 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                 used = float(quota_data.get("used", 0))
                 total = float(quota_data.get("total", 100))
                 remaining = float(quota_data.get("remaining", 0))
-                remaining_pct = int(quota_data.get("remainingPercentage", 0))
+                remaining_pct = quota_data.get("remainingPercentage")
                 reset_at = quota_data.get("resetAt", "")
                 unlimited = quota_data.get("unlimited", False)
                 
                 # Calculate percentage (remaining)
-                pct = remaining_pct if remaining_pct is not None else 0
-                
+                if remaining_pct is not None:
+                    pct = int(remaining_pct)
+                elif total > 0:
+                    pct = max(0, min(100, round((remaining / total) * 100)))
+                else:
+                    pct = 0
+                    
                 # Format reset time and expiration countdown
                 reset_str = ""
                 expires_in = ""
