@@ -28,12 +28,16 @@ async def async_setup_entry(
     data_source = entry.data.get(CONF_DATA_SOURCE, "9router")
     proxy_url = entry.data.get(CONF_PROXY_URL, "http://localhost:20128")
     
+    import hashlib
+    
     # Hub ID
     if data_source == "trouter":
-        hub_id = f"{data_source}_{hash(entry.data.get('api_key', ''))}"
+        api_key_hash = hashlib.md5(str(entry.data.get('api_key', '')).encode('utf-8')).hexdigest()[:10]
+        hub_id = f"{data_source}_{api_key_hash}"
         hub_name = "Trouter.click Hub"
     else:
-        hub_id = f"{data_source}_{hash(proxy_url)}"
+        proxy_hash = hashlib.md5(str(proxy_url).encode('utf-8')).hexdigest()[:10]
+        hub_id = f"{data_source}_{proxy_hash}"
         hub_name = f"9Router ({proxy_url})"
         
     # Ensure hub device is created in the device registry

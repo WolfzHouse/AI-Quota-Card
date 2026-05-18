@@ -575,7 +575,9 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                                 service_name = raw_body.get("plan", "Trouter")
                                 key_preview = raw_body.get("key_preview", f"Key {idx+1}")
                                 
-                                conn_id = f"trouter_{hash(key)}"
+                                import hashlib
+                                key_hash = hashlib.md5(str(key).encode('utf-8')).hexdigest()[:10]
+                                conn_id = f"trouter_{key_hash}"
                                 result_data["connections"][conn_id] = {
                                     "id": conn_id,
                                     "provider": "trouter",

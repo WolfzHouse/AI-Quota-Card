@@ -98,9 +98,10 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Add data_source to user_input
                 user_input[CONF_DATA_SOURCE] = "trouter"
                 
-                # Generate a unique_id based on API key hash
+                import hashlib
                 api_key = user_input[CONF_API_KEY]
-                unique_id = f"trouter_{hash(api_key)}"
+                api_key_hash = hashlib.md5(str(api_key).encode('utf-8')).hexdigest()[:10]
+                unique_id = f"trouter_{api_key_hash}"
                 
                 await self.async_set_unique_id(unique_id)
                 self._abort_if_unique_id_configured()
