@@ -12,8 +12,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers import device_registry as dr
 
-from .const import DOMAIN, CONF_PROVIDER, CONF_AUTH_INDEX
+from .const import DOMAIN, CONF_PROXY_URL, CONF_DATA_SOURCE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,59 +25,87 @@ async def async_setup_entry(
     """Set up the AI Web Quota sensors."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
 
-    provider = entry.data[CONF_PROVIDER]
-    auth_index = entry.data.get(CONF_AUTH_INDEX, "0")
-
-    # Access parsed data from coordinator
-    data = coordinator.data
-    if not data:
-        # If API failed on first fetch, data might be empty. Coordinator should handle retries
-        return
-
-    email = data.get("email", "Unknown Email")
-    plan = data.get("plan", "Unknown Plan")
-
-    device_id = f"ai_quota_{provider}_{auth_index}"
-    device_name = f"{provider.capitalize()} (Auth {auth_index})"
-
-    device_info = DeviceInfo(
-        identifiers={(DOMAIN, device_id)},
-        name=device_name,
+    data_source = entry.data.get(CONF_DATA_SOURCE, "9router")
+    proxy_url = entry.data.get(CONF_PROXY_URL, "http://localhost:20128")
+    
+    # Hub ID
+    if data_source == "trouter":
+        hub_id = f"{data_source}_{hash(entry.data.get('api_key', ''))}"
+        hub_name = "Trouter.click Hub"
+    else:
+        hub_id = f"{data_source}_{hash(proxy_url)}"
+        hub_name = f"9Router ({proxy_url})"
+        
+    # Ensure hub device is created in the device registry
+    device_registry = dr.async_get(hass)
+    device_registry.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, hub_id)},
+        name=hub_name,
         manufacturer="AI Quota",
-        model=plan,
-        sw_version=email,
+        model="AI Quota Hub",
     )
 
-    # Create just ONE main sensor with all data in attributes
-    sensors = [
-        AIQuotaMainSensor(
-            coordinator=coordinator,
-            device_info=device_info,
-            provider=provider,
-            auth_index=auth_index,
-            entity_id_base=f"{provider}_{provider}_auth_{auth_index}"
+    data = coordinator.data
+    if not data or not isinstance(data, dict):
+        return
+
+    connections = data.get("connections", {})
+    sensors = []
+
+    for conn_id, conn_data in connections.items():
+        provider = conn_data.get("provider", "unknown")
+        name = conn_data.get("name", "Unknown")
+        plan = conn_data.get("plan", "Unknown Plan")
+        email = conn_data.get("email", "Unknown Email")
+        
+        device_id = f"{data_source}_{conn_id}"
+        device_name = f"{provider.capitalize()} - {name}"
+
+        device_info = DeviceInfo(
+            identifiers={(DOMAIN, device_id)},
+            name=device_name,
+            manufacturer="AI Quota",
+            model=plan,
+            sw_version=email,
+            via_device=(DOMAIN, hub_id),
         )
-    ]
 
-    async_add_entities(sensors, update_before_add=False)
+        sensors.append(
+            AIQuotaConnectionSensor(
+                coordinator=coordinator,
+                device_info=device_info,
+                connection_id=conn_id,
+                connection_data=conn_data,
+                data_source=data_source
+            )
+        )
+
+    if sensors:
+        async_add_entities(sensors, update_before_add=False)
 
 
-class AIQuotaMainSensor(CoordinatorEntity, SensorEntity):
-    """Main sensor that contains all quota data in attributes."""
+class AIQuotaConnectionSensor(CoordinatorEntity, SensorEntity):
+    """Main sensor that contains quota data for a specific connection."""
 
     def __init__(
-        self, coordinator, device_info, provider, auth_index, entity_id_base
+        self, coordinator, device_info, connection_id, connection_data, data_source
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._attr_device_info = device_info
+        self._connection_id = connection_id
+        
+        provider = connection_data.get("provider", "unknown")
+        name = connection_data.get("name", "Unknown")
 
-        self._provider = provider
-        self._auth_index = str(auth_index)
-
-        self.entity_id = f"sensor.{entity_id_base}"
-        self._attr_unique_id = self.entity_id
-        self._attr_name = f"{provider.capitalize()} Quota"
+        # Sanitize entity ID
+        safe_provider = provider.replace("-", "_").lower()
+        safe_id = connection_id.replace("-", "_")[:8].lower()
+        
+        self.entity_id = f"sensor.{data_source}_{safe_provider}_{safe_id}"
+        self._attr_unique_id = f"{data_source}_{connection_id}"
+        self._attr_name = f"{provider.capitalize()} {name} Quota"
 
         self._attr_icon = "mdi:chart-donut"
         self._attr_native_unit_of_measurement = "%"
@@ -88,15 +117,15 @@ class AIQuotaMainSensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data:
             return None
 
-        # Return the first group's first model's percentage as the main state
-        items = self.coordinator.data.get("items", [])
+        connections = self.coordinator.data.get("connections", {})
+        conn_data = connections.get(self._connection_id, {})
+
+        items = conn_data.get("items", [])
         if items and len(items) > 0:
             group = items[0]
             models = group.get("models", [])
             if models and len(models) > 0:
-                # Return the first model's percentage (usually the main quota)
                 return models[0].get("percentage")
-            # Fallback to group percentage if no models
             return group.get("percentage")
 
         return None
@@ -107,16 +136,19 @@ class AIQuotaMainSensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data:
             return {}
 
+        connections = self.coordinator.data.get("connections", {})
+        conn_data = connections.get(self._connection_id, {})
+
         attrs = {
-            "provider": self._provider,
-            "auth_index": self._auth_index,
-            "email": self.coordinator.data.get("email", "Unknown"),
-            "plan": self.coordinator.data.get("plan", "Unknown"),
-            "api_payload": self.coordinator.data,
+            "provider": conn_data.get("provider", "Unknown"),
+            "email": conn_data.get("email", "Unknown"),
+            "plan": conn_data.get("plan", "Unknown"),
+            "isActive": conn_data.get("isActive", False),
+            "api_payload": conn_data.get("api_payload", {}),
         }
 
         # Add summary of all groups and models
-        items = self.coordinator.data.get("items", [])
+        items = conn_data.get("items", [])
         if items:
             groups_summary = []
             for group in items:

@@ -536,30 +536,23 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
 
 
     async def _async_update_data(self) -> dict[str, Any]:
-        """Fetch data from the proxy endpoint."""
+        """Fetch data from API for all connections."""
+        cfg_data = self.entry.data
+        data_source = cfg_data.get("data_source", "9router")
+        proxy_url = cfg_data.get("proxy_url", "http://localhost:20128")
+        api_key = cfg_data.get("api_key", "")
         
-        # Merge options over data so that user edits take effect immediately
-        cfg_data = dict(self.entry.data)
-        cfg_data.update(self.entry.options)
+        result_data = {"connections": {}}
         
-        provider = cfg_data[CONF_PROVIDER]
-        auth_index = cfg_data.get(CONF_AUTH_INDEX, "0")
-        api_key = cfg_data.get(CONF_API_KEY, "")
-        proxy_url = cfg_data.get(CONF_PROXY_URL, DEFAULT_PROXY_URL)
-        data_source = cfg_data.get(CONF_DATA_SOURCE, "cliproxy")
-
-        # Handle Trouter.click data source - direct API call
         if data_source == "trouter":
-            if not api_key:
-                raise UpdateFailed("API key is required for Trouter.click data source")
-            
+            # Trouter only has one API key = one connection
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(
                         "https://trouter.click/api/proxy/me?view=dashboard",
                         headers={
                             "Authorization": f"Bearer {api_key}",
-                            "Accept": "*/*",
+                            "Accept": "application/json",
                             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                         },
                         timeout=30
@@ -569,334 +562,110 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                             raise UpdateFailed(f"Trouter API error {response.status}: {text[:200]}")
                         
                         raw_body = await response.json()
-                        
-                        _LOGGER.warning("[AI Quota DEBUG] Trouter.click | Keys: %s | Body: %s",
-                                        list(raw_body.keys()), json.dumps(raw_body)[:800])
-                        
-                        parsed_items = self._parse_provider_data(provider, raw_body)
-                        
-                        # Extract account info
-                        service_name = raw_body.get("sub_service_type_name", "Unknown")
+                        parsed_items = self._parse_provider_data("trouter", raw_body)
+                        service_name = raw_body.get("plan", "Trouter")
                         key_preview = raw_body.get("key_preview", "Unknown")
                         
-                        configured_account = cfg_data.get(CONF_ACCOUNT_NAME)
-                        return {
+                        conn_id = f"trouter_{hash(api_key)}"
+                        result_data["connections"][conn_id] = {
+                            "id": conn_id,
+                            "provider": "trouter",
+                            "name": key_preview,
+                            "email": key_preview,
                             "plan": service_name,
-                            "email": configured_account or key_preview,
+                            "isActive": True,
                             "items": parsed_items,
                             "api_payload": raw_body
                         }
-            except UpdateFailed:
-                raise
             except Exception as err:
-                import traceback  # noqa: PLC0415
-                _LOGGER.error("[AI Quota CRASH] Trouter.click\n%s", traceback.format_exc())
                 raise UpdateFailed(f"Error communicating with Trouter API: {err}")
-
-        # Handle 9Router data source - direct API call (try without auth first, like CLIProxy)
+                
         elif data_source == "9router":
-            # For 9router, api_key is the password (optional - try without auth first)
+            base_url = proxy_url if proxy_url and proxy_url != "https://ai.wolfz.shop/v0/management/api-call" else "http://localhost:20128"
             password = api_key
             
-            # Get base URL from proxy_url field (default to localhost)
-            base_url = proxy_url if proxy_url and proxy_url != DEFAULT_PROXY_URL else "http://localhost:20128"
-            
             try:
-                # Create session with explicit cookie jar (unsafe=True to accept cookies from IP addresses)
                 cookie_jar = aiohttp.CookieJar(unsafe=True)
                 async with aiohttp.ClientSession(cookie_jar=cookie_jar) as session:
-                    # Try to access without authentication first (like CLIProxy on localhost)
-                    _LOGGER.debug("[AI Quota] 9Router attempting unauthenticated access to %s", base_url)
-                    
-                    needs_auth = False
-                    
-                    # Step 1: Try to get providers list without authentication
-                    async with session.get(
-                        f"{base_url}/api/providers/client",
-                        headers={
-                            "Accept": "application/json",
-                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                        },
-                        timeout=30
-                    ) as test_response:
-                        if test_response.status == 401:
-                            _LOGGER.debug("[AI Quota] 9Router requires authentication")
-                            needs_auth = True
-                        elif not test_response.ok:
-                            text = await test_response.text()
-                            raise UpdateFailed(f"9Router API error {test_response.status}: {text[:200]}")
-                        else:
-                            # Success without auth!
-                            _LOGGER.debug("[AI Quota] 9Router access successful without authentication")
-                            providers_data = await test_response.json()
-                            connections = providers_data.get("connections", [])
-                            _LOGGER.debug("[AI Quota DEBUG] 9Router | Found %d connections", len(connections))
-                    
-                    # Step 2: If authentication is needed, login first
-                    if needs_auth:
-                        if not password:
-                            raise UpdateFailed("9Router requires password for authentication")
-                        
-                        _LOGGER.debug("[AI Quota] 9Router attempting login with password")
-                        
+                    # 1. Login
+                    if password:
+                        _LOGGER.debug("[AI Quota] 9Router attempting login")
                         async with session.post(
                             f"{base_url}/api/auth/login",
                             json={"password": password},
                             headers={
                                 "Content-Type": "application/json",
                                 "Accept": "application/json",
-                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                             },
                             timeout=30
                         ) as login_response:
                             login_text = await login_response.text()
-                            _LOGGER.debug("[AI Quota] 9Router login response status: %d", login_response.status)
-                            _LOGGER.debug("[AI Quota] 9Router login response body: %s", login_text[:500])
-                            _LOGGER.debug("[AI Quota] 9Router login response headers: %s", dict(login_response.headers))
-                            
                             if not login_response.ok:
                                 raise UpdateFailed(f"9Router login failed {login_response.status}: {login_text[:200]}")
-                            
-                            # Verify login was successful
                             try:
                                 login_data = json.loads(login_text)
                                 if not login_data.get("success"):
                                     raise UpdateFailed(f"9Router login failed: {login_text[:200]}")
                             except json.JSONDecodeError:
-                                _LOGGER.warning("[AI Quota] 9Router login response is not JSON: %s", login_text[:200])
-                            
-                            _LOGGER.debug("[AI Quota] 9Router login successful, cookies: %s", session.cookie_jar)
-                            
-                            # Log all cookies for debugging
-                            for cookie in session.cookie_jar:
-                                _LOGGER.debug("[AI Quota] 9Router cookie: %s=%s (domain=%s, path=%s)", 
-                                            cookie.key, cookie.value[:20] if len(cookie.value) > 20 else cookie.value,
-                                            cookie.get('domain', 'N/A'), cookie.get('path', 'N/A'))
-                        
-                        # Now get providers list with authentication
-                        async with session.get(
-                            f"{base_url}/api/providers/client",
-                            headers={
-                                "Accept": "application/json",
-                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                            },
-                            timeout=30
-                        ) as providers_response:
-                            if not providers_response.ok:
-                                text = await providers_response.text()
-                                raise UpdateFailed(f"9Router providers API error {providers_response.status}: {text[:200]}")
-                            
-                            providers_data = await providers_response.json()
-                            connections = providers_data.get("connections", [])
-                            _LOGGER.debug("[AI Quota DEBUG] 9Router | Found %d connections", len(connections))
-                    
-                    # Step 3: Fetch quota for the specific provider using auth_index
-                    target_connection = None
-                    
-                    # Filter connections by provider name (exact match)
-                    # Include both active and inactive accounts
-                    matching_connections = []
-                    for conn in connections:
-                        conn_provider = conn.get("provider", "").lower()
-                        config_provider = provider.lower()
-                        
-                        # Exact match or check if config provider is in the connection provider
-                        # e.g., "claude" matches "claude" or "anthropic-compatible-..."
-                        if conn_provider == config_provider or config_provider in conn_provider:
-                            matching_connections.append(conn)
-                            _LOGGER.debug("[AI Quota DEBUG] 9Router | Matched connection: provider='%s', name='%s', active=%s", 
-                                          conn_provider, conn.get("name"), conn.get("isActive"))
-                    
-                    _LOGGER.debug("[AI Quota DEBUG] 9Router | Found %d matching connections for provider '%s'", 
-                                  len(matching_connections), provider)
-                    
-                    # Use auth_index to select which account (0 = first, 1 = second, etc.)
-                    auth_idx = int(auth_index) if auth_index else 0
-                    if auth_idx < len(matching_connections):
-                        target_connection = matching_connections[auth_idx]
-                        _LOGGER.debug("[AI Quota DEBUG] 9Router | Selected connection at index %d: %s", 
-                                      auth_idx, target_connection.get("name"))
-                    elif matching_connections:
-                        # If auth_index is out of range, use the first one
-                        target_connection = matching_connections[0]
-                        _LOGGER.warning("[AI Quota] 9Router | Auth index %d out of range, using first connection", auth_idx)
-                    
-                    # If no match found, use the first active connection
-                    if not target_connection:
-                        for conn in connections:
-                            if conn.get("isActive", False):
-                                target_connection = conn
-                                _LOGGER.warning("[AI Quota] 9Router | No matching provider found, using first active connection")
-                                break
-                    
-                    if not target_connection:
-                        raise UpdateFailed("No active 9Router connections found")
-                    
-                    connection_id = target_connection.get("id")
-                    connection_name = target_connection.get("name", "Unknown")
-                    connection_email = target_connection.get("email") or connection_name
-                    
-                    _LOGGER.debug("[AI Quota DEBUG] 9Router | Using connection: %s (%s)", connection_name, connection_id)
-                    
-                    # Step 4: Fetch quota for this connection
+                                pass
+                                
+                    # 2. Get providers/connections
                     async with session.get(
-                        f"{base_url}/api/usage/{connection_id}",
-                        headers={
-                            "Accept": "application/json",
-                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                        },
+                        f"{base_url}/api/providers/client",
+                        headers={"Accept": "application/json"},
                         timeout=30
-                    ) as quota_response:
-                        if not quota_response.ok:
-                            text = await quota_response.text()
-                            raise UpdateFailed(f"9Router quota API error {quota_response.status}: {text[:200]}")
+                    ) as providers_response:
+                        if not providers_response.ok:
+                            raise UpdateFailed(f"9Router providers failed: {providers_response.status}")
+                        providers_data = await providers_response.json()
+                        connections = providers_data.get("connections", [])
                         
-                        raw_body = await quota_response.json()
-                        
-                        _LOGGER.warning("[AI Quota DEBUG] 9Router | Connection: %s | Keys: %s | Body: %s",
-                                        connection_name, list(raw_body.keys()), json.dumps(raw_body)[:800])
-                        
-                        # Parse using 9router parser
-                        parsed_items = self._parse_provider_data("9router", raw_body)
-                        
-                        plan_name = raw_body.get("plan", "9Router")
-                        
-                        return {
-                            "plan": plan_name,
-                            "email": connection_email,
-                            "items": parsed_items,
-                            "api_payload": raw_body
-                        }
-            except UpdateFailed:
-                raise
-            except Exception as err:
-                import traceback  # noqa: PLC0415
-                _LOGGER.error("[AI Quota CRASH] 9Router\n%s", traceback.format_exc())
-                raise UpdateFailed(f"Error communicating with 9Router API: {err}")
-
-        # Handle CLIProxy data source - proxy-based collection
-        # This is the original method for all providers through CLIProxyAPI
-        req_config = {
-            "antigravity": {
-                "method": "POST",
-                "url": "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels",
-                "headers": { "User-Agent": "antigravity/1.11.5 windows/amd64" }
-            },
-            "claude": {
-                "method": "GET",
-                "url": "https://api.anthropic.com/api/oauth/usage",
-                "headers": {"anthropic-beta": "oauth-2025-04-20", "Accept": "application/json"}
-            },
-            "codex": {
-                "method": "GET",
-                "url": "https://chatgpt.com/backend-api/wham/usage",
-                "headers": { "User-Agent": "codex_cli_rs/0.76.0 (Debian 13.0.0; x86_64) WindowsTerminal" }
-            },
-            "gemini-cli": {
-                "method": "POST",
-                "url": "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota",
-                "headers": {
-                    "Content-Type": "application/json"
-                }
-            },
-            "kiro": {
-                "method": "GET",
-                "url": "https://api.github.com/copilot_internal",
-            },
-            "copilot": {
-                "method": "GET",
-                "url": "https://api.github.com/copilot_internal/billing",
-            },
-            "trouter": {
-                "method": "GET",
-                "url": "https://trouter.click/api/proxy/me?view=dashboard",
-                "headers": {
-                    "Accept": "*/*",
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
-                }
-            }
-        }
-
-        cfg = req_config.get(provider)
-        if not cfg:
-            raise UpdateFailed(f"Unknown provider: {provider}")
-
-        headers = {
-            "Authorization": "Bearer $TOKEN$",
-            "Content-Type": "application/json"
-        }
-        headers.update(cfg.get("headers", {}))
-
-        req_body = {
-            "authIndex": auth_index,
-            "method": cfg["method"],
-            "url": cfg["url"],
-            "header": headers
-        }
-
-        if provider == "gemini-cli":
-            req_body["data"] = '{"project": ""}'
-
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    proxy_url,
-                    json=req_body,
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json"
-                    },
-                    timeout=30
-                ) as response:
-                    
-                    if not response.ok:
-                        text = await response.text()
-                        raise UpdateFailed(f"HTTP error {response.status}: {text}")
-
-                    result = await response.json()
-                    status_code = result.get("statusCode") or result.get("status_code", 200)
-
-                    raw_body = result.get("body") or {}
-                    if isinstance(raw_body, str):
-                        try:
-                            raw_body = json.loads(raw_body)
-                        except json.JSONDecodeError:
-                            raw_body = {}
-                    if not isinstance(raw_body, dict):
-                        raw_body = {}
-
-                    if not (200 <= status_code < 300):
-                        err_msg = json.dumps(raw_body)[:200]
-                        raise UpdateFailed(f"API Error {status_code}: {err_msg}")
-
-                    _LOGGER.warning("[AI Quota DEBUG] Provider: %s | Keys: %s | Body: %s",
-                                    provider, list(raw_body.keys()), json.dumps(raw_body)[:800])
-
-                    parsed_items = self._parse_provider_data(provider, raw_body)
-                    
-                    # Detect Plan
-                    detected_plan = "Free"
-                    if provider == "codex" and raw_body.get("plan_type"):
-                        detected_plan = raw_body["plan_type"]
-                    elif provider == "claude":
-                        extra = raw_body.get("extra_usage")
-                        if isinstance(extra, dict) and (extra.get("is_enabled") or extra.get("monthly_limit") is not None):
-                            detected_plan = "Team"
-                        elif raw_body.get("organization") and isinstance(raw_body["organization"], dict) and raw_body["organization"].get("type"):
-                            val = raw_body["organization"]["type"]
-                            detected_plan = val[0].upper() + val[1:] if val else "Free"
+                    # 3. Fetch usage for each connection
+                    for conn in connections:
+                        conn_id = conn.get("id")
+                        if not conn_id:
+                            continue
                             
-                    configured_account = cfg_data.get(CONF_ACCOUNT_NAME)
-                    return {
-                        "plan": detected_plan,
-                        "email": configured_account or raw_body.get("email") or result.get("email") or "Unknown Account",
-                        "items": parsed_items,
-                        "api_payload": raw_body
-                    }
-
-        except UpdateFailed:
-            raise
-        except Exception as err:
-            import traceback  # noqa: PLC0415
-            _LOGGER.error("[AI Quota CRASH] Provider=%s\n%s", provider, traceback.format_exc())
-            raise UpdateFailed(f"Error communicating with CLIProxyAPI: {err}")
+                        conn_provider = conn.get("provider", "unknown")
+                        conn_name = conn.get("name", "Unknown")
+                        
+                        # Use provider from connection to parse data. Custom providers start with 'anthropic-compatible' etc.
+                        parser_provider = conn_provider.lower()
+                        if "claude" in parser_provider or "anthropic" in parser_provider:
+                            parser_provider = "claude"
+                        elif "codex" in parser_provider or "openai" in parser_provider or "chatgpt" in parser_provider:
+                            parser_provider = "codex"
+                        elif "gemini" in parser_provider:
+                            parser_provider = "gemini-cli"
+                            
+                        try:
+                            async with session.get(
+                                f"{base_url}/api/usage/{conn_id}",
+                                headers={"Accept": "application/json"},
+                                timeout=30
+                            ) as quota_response:
+                                if quota_response.ok:
+                                    raw_body = await quota_response.json()
+                                    if raw_body.get("message") == "Usage not available for this connection":
+                                        continue # Skip
+                                        
+                                    parsed_items = self._parse_provider_data("9router", raw_body)
+                                    plan_name = raw_body.get("plan", "Unknown Plan")
+                                    
+                                    result_data["connections"][conn_id] = {
+                                        "id": conn_id,
+                                        "provider": conn_provider,
+                                        "name": conn_name,
+                                        "email": conn.get("email") or conn_name,
+                                        "plan": plan_name,
+                                        "isActive": conn.get("isActive", False),
+                                        "items": parsed_items,
+                                        "api_payload": raw_body
+                                    }
+                        except Exception as e:
+                            _LOGGER.warning("[AI Quota] Failed to fetch usage for %s: %s", conn_name, e)
+                            
+            except Exception as err:
+                raise UpdateFailed(f"Error communicating with 9Router API: {err}")
+                
+        return result_data
