@@ -104,11 +104,16 @@ class AIQuotaSummaryCard extends HTMLElement {
         const resetTime = model.resetTime || '';
         
         // Determine color based on percentage
-        let barColor = '#4caf50'; // Green
-        if (percentage < 30) {
-          barColor = '#f44336'; // Red
-        } else if (percentage < 60) {
-          barColor = '#ff9800'; // Orange
+        // >80 green, >60 blue, >40 yellow, >20 orange, else red
+        let barColor = '#ef4444'; // Red
+        if (percentage > 80) {
+          barColor = '#22c55e'; // Green
+        } else if (percentage > 60) {
+          barColor = '#3b82f6'; // Blue
+        } else if (percentage > 40) {
+          barColor = '#facc15'; // Yellow
+        } else if (percentage > 20) {
+          barColor = '#f59e0b'; // Orange
         }
         
         quotaItemsHTML += `
@@ -349,14 +354,17 @@ class AIQuotaSummaryCard extends HTMLElement {
       } catch (e) {}
     }
     
-    // Determine color (match 9Router style)
-    let barColor = '#4caf50';
-    if (percentage < 20) {
-      barColor = '#f44336';
-    } else if (percentage < 50) {
-      barColor = '#ff9800';
-    } else if (percentage > 99) {
-      barColor = '#00e676';
+    // Determine color
+    // >80 green, >60 blue, >40 yellow, >20 orange, else red
+    let barColor = '#ef4444';
+    if (percentage > 80) {
+      barColor = '#22c55e';
+    } else if (percentage > 60) {
+      barColor = '#3b82f6';
+    } else if (percentage > 40) {
+      barColor = '#facc15';
+    } else if (percentage > 20) {
+      barColor = '#f59e0b';
     }
     
     this.content.innerHTML = `

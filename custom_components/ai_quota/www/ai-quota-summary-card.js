@@ -173,14 +173,17 @@ class AIQuotaSummaryCard extends HTMLElement {
       }
     }
     
-    // Determine color based on percentage (match 9Router style)
-    let barColor = '#4caf50'; // Green
-    if (percentage < 20) {
-      barColor = '#f44336'; // Red
-    } else if (percentage < 50) {
-      barColor = '#ff9800'; // Orange
-    } else if (percentage > 99) {
-      barColor = '#00e676'; // Bright green
+    // Determine color based on percentage
+    // >80 green, >60 blue, >40 yellow, >20 orange, else red
+    let barColor = '#ef4444'; // Red
+    if (percentage > 80) {
+      barColor = '#22c55e'; // Green
+    } else if (percentage > 60) {
+      barColor = '#3b82f6'; // Blue
+    } else if (percentage > 40) {
+      barColor = '#facc15'; // Yellow
+    } else if (percentage > 20) {
+      barColor = '#f59e0b'; // Orange
     }
     
     // Build the card HTML
@@ -382,10 +385,13 @@ class AIQuotaSummaryCard extends HTMLElement {
           pct = Math.round(((q.limit - (q.usage || 0)) / q.limit) * 100);
         }
         
-        let color = '#4caf50'; // Green
-        if (pct < 20) color = '#f44336'; // Red
-        else if (pct < 50) color = '#ff9800'; // Orange
-        else if (pct > 99) color = '#00e676'; // Bright green
+        // Determine color based on percentage
+        // >80 green, >60 blue, >40 yellow, >20 orange, else red
+        let color = '#ef4444'; // Red
+        if (pct > 80) color = '#22c55e'; // Green
+        else if (pct > 60) color = '#3b82f6'; // Blue
+        else if (pct > 40) color = '#facc15'; // Yellow
+        else if (pct > 20) color = '#f59e0b'; // Orange
         
         // Quota usage text
         let usageText = q.usageDisplay || `${q.usage || 0} / ${q.limit || 0}`;
