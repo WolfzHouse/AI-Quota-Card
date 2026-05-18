@@ -209,12 +209,21 @@ class AIQuotaSummaryCard extends HTMLElement {
         .quota-main {
           margin-bottom: 16px;
         }
-        .percentage-display {
-          font-size: 48px;
-          font-weight: 300;
+        .quota-info-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+        }
+        .spending-display {
+          font-size: 18px;
+          font-weight: 500;
           color: var(--primary-text-color);
-          text-align: center;
-          margin: 16px 0;
+        }
+        .percentage-display {
+          font-size: 18px;
+          font-weight: 500;
+          color: var(--primary-text-color);
         }
         .progress-bar {
           width: 100%;
@@ -222,7 +231,7 @@ class AIQuotaSummaryCard extends HTMLElement {
           background-color: var(--divider-color);
           border-radius: 4px;
           overflow: hidden;
-          margin: 12px 0;
+          margin: 8px 0;
         }
         .progress-fill {
           height: 100%;
@@ -276,11 +285,13 @@ class AIQuotaSummaryCard extends HTMLElement {
         </div>
         
         <div class="quota-main">
-          <div class="percentage-display">${percentage}%</div>
+          <div class="quota-info-row">
+            <div class="spending-display">${quotaDisplay || ''}</div>
+            <div class="percentage-display">${percentage}%</div>
+          </div>
           <div class="progress-bar">
             <div class="progress-fill" style="width: ${percentage}%"></div>
           </div>
-          ${quotaDisplay ? `<div class="usage-display">${quotaDisplay}</div>` : ''}
         </div>
 
         <div class="quota-stats">
