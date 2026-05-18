@@ -123,7 +123,7 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=schema,
             errors=errors,
             description_placeholders={
-                "info": "Configure Trouter.click hub. All accounts will be auto-discovered."
+                "info": "Configure Trouter.click hub. You can enter multiple API keys separated by commas."
             }
         )
 

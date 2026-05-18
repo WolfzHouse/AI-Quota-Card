@@ -542,38 +542,47 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
         result_data = {"connections": {}}
         
         if data_source == "trouter":
-            # Trouter only has one API key = one connection
+            # Trouter can have multiple API keys separated by comma or newline
+            api_keys = [k.strip() for k in api_key.replace(",", "\n").split("\n") if k.strip()]
+            
+            if not api_keys:
+                return result_data
+                
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                        "https://trouter.click/api/proxy/me?view=dashboard",
-                        headers={
-                            "Authorization": f"Bearer {api_key}",
-                            "Accept": "application/json",
-                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                        },
-                        timeout=30
-                    ) as response:
-                        if not response.ok:
-                            text = await response.text()
-                            raise UpdateFailed(f"Trouter API error {response.status}: {text[:200]}")
-                        
-                        raw_body = await response.json()
-                        parsed_items = self._parse_provider_data("trouter", raw_body)
-                        service_name = raw_body.get("plan", "Trouter")
-                        key_preview = raw_body.get("key_preview", "Unknown")
-                        
-                        conn_id = f"trouter_{hash(api_key)}"
-                        result_data["connections"][conn_id] = {
-                            "id": conn_id,
-                            "provider": "trouter",
-                            "name": key_preview,
-                            "email": key_preview,
-                            "plan": service_name,
-                            "isActive": True,
-                            "items": parsed_items,
-                            "api_payload": raw_body
-                        }
+                    for idx, key in enumerate(api_keys):
+                        try:
+                            async with session.get(
+                                "https://trouter.click/api/proxy/me?view=dashboard",
+                                headers={
+                                    "Authorization": f"Bearer {key}",
+                                    "Accept": "application/json",
+                                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                                },
+                                timeout=30
+                            ) as response:
+                                if not response.ok:
+                                    _LOGGER.warning("[AI Quota] Trouter API error for key %d: %s", idx+1, response.status)
+                                    continue
+                                
+                                raw_body = await response.json()
+                                parsed_items = self._parse_provider_data("trouter", raw_body)
+                                service_name = raw_body.get("plan", "Trouter")
+                                key_preview = raw_body.get("key_preview", f"Key {idx+1}")
+                                
+                                conn_id = f"trouter_{hash(key)}"
+                                result_data["connections"][conn_id] = {
+                                    "id": conn_id,
+                                    "provider": "trouter",
+                                    "name": key_preview,
+                                    "email": key_preview,
+                                    "plan": service_name,
+                                    "isActive": True,
+                                    "items": parsed_items,
+                                    "api_payload": raw_body
+                                }
+                        except Exception as e:
+                            _LOGGER.warning("[AI Quota] Failed to fetch Trouter key %d: %s", idx+1, e)
             except Exception as err:
                 raise UpdateFailed(f"Error communicating with Trouter API: {err}")
                 
