@@ -349,12 +349,14 @@ class AIQuotaSummaryCard extends HTMLElement {
       } catch (e) {}
     }
     
-    // Determine color
+    // Determine color (match 9Router style)
     let barColor = '#4caf50';
-    if (percentage < 30) {
+    if (percentage < 20) {
       barColor = '#f44336';
-    } else if (percentage < 60) {
+    } else if (percentage < 50) {
       barColor = '#ff9800';
+    } else if (percentage > 99) {
+      barColor = '#00e676';
     }
     
     this.content.innerHTML = `

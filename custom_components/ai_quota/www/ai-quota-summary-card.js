@@ -173,12 +173,14 @@ class AIQuotaSummaryCard extends HTMLElement {
       }
     }
     
-    // Determine color based on percentage
+    // Determine color based on percentage (match 9Router style)
     let barColor = '#4caf50'; // Green
-    if (percentage < 30) {
+    if (percentage < 20) {
       barColor = '#f44336'; // Red
-    } else if (percentage < 60) {
+    } else if (percentage < 50) {
       barColor = '#ff9800'; // Orange
+    } else if (percentage > 99) {
+      barColor = '#00e676'; // Bright green
     }
     
     // Build the card HTML
