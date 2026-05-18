@@ -58,10 +58,10 @@ The card shows:
    - Service type (e.g., "CLAUDE - CC Lite")
    - API key preview (e.g., "Y6VC****0XJV")
 
-2. **Main Section**:
-   - Large percentage display (remaining quota)
-   - Color-coded progress bar
-   - Usage in USD format ($6.00 / $100.00)
+2. **Main Section (Compact)**:
+   - Top info row with usage on the left (e.g., `$3.98 / $100.00`)
+   - Remaining percentage on the right (e.g., `96%`)
+   - Color-coded progress bar directly below
 
 3. **Stats Grid**:
    - **Expires in**: Days until API key expires
@@ -154,7 +154,7 @@ views:
 ## Screenshots
 
 The card displays a clean, modern interface similar to the Trouter.click dashboard, with:
-- Large percentage indicator
+- Compact top row for usage + percentage
 - Color-coded progress bar
 - Clear USD spending amounts
 - Expiration and reset information

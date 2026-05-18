@@ -1,53 +1,61 @@
 # Multi-Device Hub Implementation - Status Report
 
-## Current Status: DONE ✅
+## Current Status: DONE ✅ (Updated v2.0.6)
 
-The multi-device hub architecture (v2.0.0) has been fully implemented!
+The multi-device hub architecture is fully implemented and stable.
 
 ---
 
-## ✅ Completed:
+## ✅ Completed
 
-### 1. Config Flow (DONE)
-- ✅ Removed `provider` and `auth_index` fields
-- ✅ Simplified to only ask for: Data Source, Base URL, Password
-- ✅ Entry title now: "{Data Source} ({URL})"
+### 1. Config Flow
+- ✅ Simplified setup flow with data-source based configuration
+- ✅ Supports `cliproxy`, `trouter`, and `9router`
+- ✅ Entry title uses data source + URL
 - ✅ Unique ID based on data source + URL
-- ✅ Version bumped to 2
 
-### 2. Constants (DONE)
-- ✅ Removed unused `CONF_PROVIDER`, `CONF_AUTH_INDEX`, `CONF_ACCOUNT_NAME`
-- ✅ Kept only essential fields: `CONF_DATA_SOURCE`, `CONF_PROXY_URL`, `CONF_API_KEY`
+### 2. Coordinator (Multi-connection)
+- ✅ Reworked `_async_update_data()` for hub-and-spoke model
+- ✅ 9Router login via password/session
+- ✅ Auto-discovery from `/api/providers/client`
+- ✅ Per-connection usage fetch from `/api/usage/{connection_id}`
+- ✅ Per-connection error isolation (one failure does not break all)
+- ✅ Returns normalized connection dictionary for sensor creation
 
-### 3. Coordinator (DONE)
-- ✅ Rewrote `_async_update_data()` from scratch to support multi-connection
-- ✅ For 9Router: Fetches `/api/providers/client` and automatically loops over all connections
-- ✅ Handles API errors per-connection (skips connections if they return "Usage not available")
-- ✅ Returns a robust dictionary keyed by connection IDs
+### 3. Sensor Platform
+- ✅ Creates one Hub device per integration entry
+- ✅ Creates one child device + sensor per discovered connection
+- ✅ Links child devices to hub with `via_device`
 
-### 4. Sensor Platform (DONE)
-- ✅ Creates a parent "Hub" device (e.g. `9Router (http://192.168.1.107:20128)`)
-- ✅ Iterates over all connections found by the coordinator
-- ✅ Creates one individual Device + Sensor per connection (Claude, Codex, Trouter, etc.)
-- ✅ Links child devices to the Hub using `via_device`
+### 4. 9Router Data Source
+- ✅ Added robust 9Router quota parser
+- ✅ Supports both formats observed in real API responses:
+  - `quotas` map with named windows (`session`, `weekly`, etc.)
+  - optional `extraUsage` block (Claude Code style)
+- ✅ Human-readable reset countdown formatting
 
-### 5. Manifest Version (DONE)
-- ✅ Updated `manifest.json` version to `2.0.0`
-- ✅ Updated `__init__.py` card version to `2.0.0`
+### 5. Summary Card UI (Compact Trouter Layout)
+- ✅ Reduced Trouter card visual height
+- ✅ Moved usage string (e.g. `$3.98 / $100.00`) to top-left above progress bar
+- ✅ Moved percentage (e.g. `96%`) to top-right above progress bar
+- ✅ Matched font height between usage and percentage text
+
+### 6. Versioning / Cache Busting
+- ✅ Integration version: `2.0.6`
+- ✅ Summary card cache-busting version: `2.0.6`
 
 ---
 
-## 🚨 Breaking Changes
+## ⚠️ Notes
 
-This is a **MAJOR BREAKING CHANGE** (v1.x → v2.0):
-- You will need to **delete old integrations** from Settings > Devices & Services.
-- **Reconfigure** by adding "AI Web Quota" again. You only need to add 9Router once!
-- All your Claude, Codex, and Trouter accounts inside 9Router will be automatically discovered.
+- This architecture is a major change from old single-account style entries.
+- If users still have legacy entries, they may need to remove and re-add integration entries.
 
 ---
 
 ## 📋 Recommended Next Steps
 
-1. Review the changes on the `feature/multi-device-hub-v2` branch.
-2. I've committed the changes to Git.
-3. Test locally in Home Assistant by removing old entries and adding the new Hub.
+1. Update to latest HACS version.
+2. Restart Home Assistant.
+3. Verify entities under each discovered provider connection.
+4. Confirm summary card layout changes in dashboard.
