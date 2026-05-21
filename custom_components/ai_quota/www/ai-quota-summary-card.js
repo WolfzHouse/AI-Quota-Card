@@ -370,7 +370,7 @@ class AIQuotaSummaryCard extends HTMLElement {
     };
     
     if (logoMap[providerName]) {
-      const logoPath = `/hacsfiles/ai_quota/logos/${logoMap[providerName]}`;
+      const logoPath = `/ai_quota/logos/${logoMap[providerName]}`;
       iconSvg = `<img src="${logoPath}" width="28" height="28" style="border-radius: 4px;" alt="${providerName}">`;
     } else {
       iconSvg = `<ha-icon icon="mdi:robot-outline" style="color: var(--primary-color); --mdc-icon-size: 28px;"></ha-icon>`;

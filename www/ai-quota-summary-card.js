@@ -103,7 +103,7 @@ class AIQuotaSummaryCard extends HTMLElement {
     // Find matching logo
     for (const [key, logo] of Object.entries(logoMap)) {
       if (providerLower.includes(key)) {
-        const logoPath = `/hacsfiles/ai_quota/logos/${logo}`;
+        const logoPath = `/ai_quota/logos/${logo}`;
         icon = `<img src="${logoPath}" width="24" height="24" style="border-radius: 4px; vertical-align: middle;" alt="${provider}">`;
         break;
       }

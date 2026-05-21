@@ -19,9 +19,10 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
-_CARD_VERSION = "2.0.9"
+_CARD_VERSION = "2.0.10"
 _SUMMARY_CARD_BASE_URL = f"/{DOMAIN}/ai-quota-summary-card.js"
 _SUMMARY_CARD_URL = f"{_SUMMARY_CARD_BASE_URL}?v={_CARD_VERSION}"
+_LOGOS_BASE_URL = f"/{DOMAIN}/logos"
 _CARDS_REGISTERED = False
 
 
@@ -51,8 +52,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     if not _CARDS_REGISTERED:
         # Register summary card (supports both Trouter and 9Router)
         summary_card_path = Path(__file__).parent / "www" / "ai-quota-summary-card.js"
+        logos_path = Path(__file__).parent / "www" / "logos"
         await hass.http.async_register_static_paths([
-            StaticPathConfig(_SUMMARY_CARD_BASE_URL, str(summary_card_path), cache_headers=False)
+            StaticPathConfig(_SUMMARY_CARD_BASE_URL, str(summary_card_path), cache_headers=False),
+            StaticPathConfig(_LOGOS_BASE_URL, str(logos_path), cache_headers=False),
         ])
         add_extra_js_url(hass, _SUMMARY_CARD_URL)
         await _ensure_lovelace_resource(hass, _SUMMARY_CARD_URL)
