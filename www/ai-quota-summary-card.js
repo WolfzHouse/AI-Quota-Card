@@ -83,13 +83,31 @@ class AIQuotaSummaryCard extends HTMLElement {
     const plan = attributes.plan || '';
     
     // Get provider icon
-    const providerIcons = {
-      'claude': '🤖',
-      'codex': '💻',
-      'openai': '🔮',
-      'gemini': '✨'
+    const logoMap = {
+      'claude': 'claude.svg',
+      'anthropic': 'claude.svg',
+      'codex': 'openai.svg',
+      'openai': 'openai.svg',
+      'chatgpt': 'openai.svg',
+      'gemini': 'gemini.svg',
+      'trouter': 'trouter.svg',
+      '9router': '9router.svg',
+      'kiro': 'kiro.svg',
+      'copilot': 'copilot.svg',
+      'antigravity': 'antigravity.svg'
     };
-    const icon = providerIcons[provider.toLowerCase()] || '🔧';
+    
+    const providerLower = provider.toLowerCase();
+    let icon = '🔧';
+    
+    // Find matching logo
+    for (const [key, logo] of Object.entries(logoMap)) {
+      if (providerLower.includes(key)) {
+        const logoPath = `/hacsfiles/ai_quota/logos/${logo}`;
+        icon = `<img src="${logoPath}" width="24" height="24" style="border-radius: 4px; vertical-align: middle;" alt="${provider}">`;
+        break;
+      }
+    }
     
     let quotaItemsHTML = '';
     

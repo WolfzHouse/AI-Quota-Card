@@ -341,23 +341,37 @@ class AIQuotaSummaryCard extends HTMLElement {
     if (provider.includes('claude') || provider.includes('anthropic')) {
       providerName = 'Claude';
     } else if (provider.includes('codex') || provider.includes('openai') || provider.includes('chatgpt')) {
-      providerName = 'Codex';
+      providerName = 'OpenAI';
     } else if (provider.includes('trouter')) {
       providerName = 'Trouter';
+    } else if (provider.includes('9router')) {
+      providerName = '9Router';
     } else if (provider.includes('gemini')) {
       providerName = 'Gemini';
+    } else if (provider.includes('kiro')) {
+      providerName = 'Kiro';
+    } else if (provider.includes('copilot')) {
+      providerName = 'Copilot';
+    } else if (provider.includes('antigravity')) {
+      providerName = 'Antigravity';
     }
     
     // Select Icon based on Provider
     let iconSvg = '';
-    if (providerName === 'Claude') {
-      iconSvg = `<svg viewBox="0 0 24 24" width="28" height="28" style="background: #e19076; border-radius: 4px; padding: 2px;">
-                   <path fill="#fff" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-                 </svg>`; // Generic placeholder logo for Anthropic
-    } else if (providerName === 'Codex') {
-      iconSvg = `<svg viewBox="0 0 24 24" width="28" height="28" style="background: #10a37f; border-radius: 4px; padding: 2px;">
-                   <path fill="#fff" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14c-2.76 0-5-2.24-5-5h10c0 2.76-2.24 5-5 5z"/>
-                 </svg>`; // Generic placeholder logo for OpenAI
+    const logoMap = {
+      'Claude': 'claude.svg',
+      'OpenAI': 'openai.svg',
+      'Gemini': 'gemini.svg',
+      'Trouter': 'trouter.svg',
+      '9Router': '9router.svg',
+      'Kiro': 'kiro.svg',
+      'Copilot': 'copilot.svg',
+      'Antigravity': 'antigravity.svg'
+    };
+    
+    if (logoMap[providerName]) {
+      const logoPath = `/hacsfiles/ai_quota/logos/${logoMap[providerName]}`;
+      iconSvg = `<img src="${logoPath}" width="28" height="28" style="border-radius: 4px;" alt="${providerName}">`;
     } else {
       iconSvg = `<ha-icon icon="mdi:robot-outline" style="color: var(--primary-color); --mdc-icon-size: 28px;"></ha-icon>`;
     }
