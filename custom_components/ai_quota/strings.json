@@ -12,12 +12,23 @@
           "api_key": "API Key",
           "proxy_url": "CLIProxy API URL"
         }
+      },
+      "direct_provider": {
+        "title": "Configure Direct Provider Connection",
+        "description": "Connect directly to Claude, Codex, or Antigravity using a session token.",
+        "data": {
+          "data_source": "Provider",
+          "session_token": "Session Token / Bearer Token",
+          "account_label": "Account Label (Optional)"
+        }
       }
     },
     "error": {
       "cannot_connect": "Failed to connect to data source",
       "invalid_auth": "Invalid authentication",
-      "unknown": "Unexpected error occurred"
+      "unknown": "Unexpected error occurred",
+      "session_token_required": "Session token is required",
+      "invalid_session": "Session token is invalid or expired — please obtain a fresh token"
     },
     "abort": {
       "already_configured": "Device is already configured"

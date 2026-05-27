@@ -18,6 +18,8 @@ from .const import (
     CONF_PROXY_URL,
     CONF_API_KEY,
     CONF_DATA_SOURCE,
+    CONF_SESSION_TOKEN,
+    CONF_ACCOUNT_LABEL,
     DEFAULT_PROXY_URL,
     DEFAULT_SCAN_INTERVAL_MINUTES
 )
@@ -695,5 +697,197 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                             
             except Exception as err:
                 raise UpdateFailed(f"Error communicating with 9Router API: {err}")
-                
+
+        elif data_source == "claude_direct":
+            session_token = cfg_data.get(CONF_SESSION_TOKEN, "")
+            account_label = cfg_data.get(CONF_ACCOUNT_LABEL, "Claude")
+            if not session_token:
+                raise UpdateFailed("Claude direct: no session token configured")
+
+            headers = {
+                "Cookie": f"sessionKey={session_token}",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Accept": "application/json",
+                "Referer": "https://claude.ai/",
+            }
+
+            try:
+                async with aiohttp.ClientSession() as session:
+                    # 1. Resolve organisation ID
+                    async with session.get(
+                        "https://claude.ai/api/organizations",
+                        headers=headers,
+                        timeout=30,
+                    ) as resp:
+                        if resp.status in (401, 403):
+                            raise UpdateFailed("Claude direct: session token expired or invalid")
+                        if not resp.ok:
+                            raise UpdateFailed(f"Claude direct: organisations request failed {resp.status}")
+                        orgs = await resp.json()
+
+                    if not orgs or not isinstance(orgs, list):
+                        raise UpdateFailed("Claude direct: unexpected organisations response")
+
+                    org_id = orgs[0].get("uuid") or orgs[0].get("id")
+                    if not org_id:
+                        raise UpdateFailed("Claude direct: could not resolve organisation ID")
+
+                    # 2. Fetch usage
+                    async with session.get(
+                        f"https://claude.ai/api/organizations/{org_id}/usage",
+                        headers=headers,
+                        timeout=30,
+                    ) as resp:
+                        if not resp.ok:
+                            raise UpdateFailed(f"Claude direct: usage request failed {resp.status}")
+                        raw_body = await resp.json()
+
+                    # 3. Optional: routine run budget
+                    routines_data = None
+                    try:
+                        async with session.get(
+                            "https://claude.ai/v1/code/routines/run-budget",
+                            headers=headers,
+                            timeout=15,
+                        ) as resp:
+                            if resp.ok:
+                                routines_data = await resp.json()
+                    except Exception:
+                        pass  # routines are optional
+
+                    if routines_data and isinstance(routines_data, dict):
+                        raw_body["routines"] = routines_data
+
+                    parsed_items = self._parse_provider_data("claude", raw_body)
+
+                    import hashlib
+                    token_hash = hashlib.md5(session_token.encode("utf-8")).hexdigest()[:10]
+                    conn_id = f"claude_direct_{token_hash}"
+
+                    result_data["connections"][conn_id] = {
+                        "id": conn_id,
+                        "provider": "claude_direct",
+                        "name": account_label or "Claude",
+                        "email": account_label or "Claude Direct",
+                        "plan": orgs[0].get("plan_name", "Claude Subscription"),
+                        "isActive": True,
+                        "items": parsed_items,
+                        "api_payload": raw_body,
+                    }
+            except UpdateFailed:
+                raise
+            except Exception as err:
+                raise UpdateFailed(f"Error communicating with Claude API: {err}")
+
+        elif data_source == "codex_direct":
+            session_token = cfg_data.get(CONF_SESSION_TOKEN, "")
+            account_label = cfg_data.get(CONF_ACCOUNT_LABEL, "Codex")
+            if not session_token:
+                raise UpdateFailed("Codex direct: no session token configured")
+
+            headers = {
+                "Cookie": f"__Secure-next-auth.session-token={session_token}",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Accept": "application/json",
+                "Referer": "https://chatgpt.com/",
+            }
+
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        "https://chatgpt.com/backend-api/codex/usage",
+                        headers=headers,
+                        timeout=30,
+                    ) as resp:
+                        if resp.status in (401, 403):
+                            raise UpdateFailed("Codex direct: session token expired or invalid")
+                        if not resp.ok:
+                            raise UpdateFailed(f"Codex direct: usage request failed {resp.status}")
+                        raw_body = await resp.json()
+
+                parsed_items = self._parse_provider_data("codex", raw_body)
+
+                import hashlib
+                token_hash = hashlib.md5(session_token.encode("utf-8")).hexdigest()[:10]
+                conn_id = f"codex_direct_{token_hash}"
+
+                result_data["connections"][conn_id] = {
+                    "id": conn_id,
+                    "provider": "codex_direct",
+                    "name": account_label or "Codex",
+                    "email": account_label or "Codex Direct",
+                    "plan": raw_body.get("plan_type", "Codex Subscription"),
+                    "isActive": True,
+                    "items": parsed_items,
+                    "api_payload": raw_body,
+                }
+            except UpdateFailed:
+                raise
+            except Exception as err:
+                raise UpdateFailed(f"Error communicating with Codex API: {err}")
+
+        elif data_source == "antigravity_direct":
+            session_token = cfg_data.get(CONF_SESSION_TOKEN, "")
+            account_label = cfg_data.get(CONF_ACCOUNT_LABEL, "Antigravity")
+            if not session_token:
+                raise UpdateFailed("Antigravity direct: no session token configured")
+
+            headers = {
+                "Authorization": f"Bearer {session_token}",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Accept": "application/json",
+            }
+
+            # Try primary Antigravity quota endpoint, fall back to CLIProxy-style endpoint
+            quota_urls = [
+                "https://colab.research.google.com/api/quota",
+                "https://labs.google/api/quota",
+            ]
+
+            try:
+                raw_body = None
+                async with aiohttp.ClientSession() as session:
+                    for url in quota_urls:
+                        try:
+                            async with session.get(
+                                url,
+                                headers=headers,
+                                timeout=20,
+                            ) as resp:
+                                if resp.status in (401, 403):
+                                    raise UpdateFailed("Antigravity direct: bearer token expired or invalid")
+                                if resp.ok:
+                                    raw_body = await resp.json()
+                                    _LOGGER.debug("[AI Quota] Antigravity direct: got data from %s", url)
+                                    break
+                        except UpdateFailed:
+                            raise
+                        except Exception as e:
+                            _LOGGER.debug("[AI Quota] Antigravity direct: %s failed: %s", url, e)
+                            continue
+
+                if not raw_body:
+                    raise UpdateFailed("Antigravity direct: all quota endpoints failed")
+
+                parsed_items = self._parse_provider_data("antigravity", raw_body)
+
+                import hashlib
+                token_hash = hashlib.md5(session_token.encode("utf-8")).hexdigest()[:10]
+                conn_id = f"antigravity_direct_{token_hash}"
+
+                result_data["connections"][conn_id] = {
+                    "id": conn_id,
+                    "provider": "antigravity_direct",
+                    "name": account_label or "Antigravity",
+                    "email": account_label or "Antigravity Direct",
+                    "plan": "Antigravity",
+                    "isActive": True,
+                    "items": parsed_items,
+                    "api_payload": raw_body,
+                }
+            except UpdateFailed:
+                raise
+            except Exception as err:
+                raise UpdateFailed(f"Error communicating with Antigravity API: {err}")
+
         return result_data

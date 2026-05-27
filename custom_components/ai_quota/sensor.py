@@ -14,7 +14,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers import device_registry as dr
 
-from .const import DOMAIN, CONF_PROXY_URL, CONF_DATA_SOURCE
+from .const import DOMAIN, CONF_PROXY_URL, CONF_DATA_SOURCE, CONF_SESSION_TOKEN, CONF_ACCOUNT_LABEL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,6 +35,13 @@ async def async_setup_entry(
         api_key_hash = hashlib.md5(str(entry.data.get('api_key', '')).encode('utf-8')).hexdigest()[:10]
         hub_id = f"{data_source}_{api_key_hash}"
         hub_name = "Trouter.click Hub"
+    elif data_source in ("claude_direct", "codex_direct", "antigravity_direct"):
+        session_token = entry.data.get(CONF_SESSION_TOKEN, "")
+        account_label = entry.data.get(CONF_ACCOUNT_LABEL, "").strip()
+        token_hash = hashlib.md5(session_token.encode('utf-8')).hexdigest()[:10]
+        provider_label = data_source.replace("_direct", "").capitalize()
+        hub_id = f"{data_source}_{token_hash}"
+        hub_name = f"{provider_label} Direct Hub" + (f" — {account_label}" if account_label else "")
     else:
         proxy_hash = hashlib.md5(str(proxy_url).encode('utf-8')).hexdigest()[:10]
         hub_id = f"{data_source}_{proxy_hash}"

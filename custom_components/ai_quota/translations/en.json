@@ -6,7 +6,8 @@
         "description": "Choose your connection type",
         "menu_options": {
           "api_proxy": "API Proxy (CLIProxy / 9Router)",
-          "trouter": "Trouter.click"
+          "trouter": "Trouter.click",
+          "direct_provider": "Direct Provider (Claude / Codex / Antigravity)"
         }
       },
       "api_proxy": {
@@ -44,6 +45,20 @@
           "api_key": "Your Trouter.click API key",
           "account_name": "Optional: Display name for this account"
         }
+      },
+      "direct_provider": {
+        "title": "Configure Direct Provider Connection",
+        "description": "Connect directly to Claude, Codex, or Antigravity using a session token.\n\n**Claude**: Open claude.ai → DevTools → Application → Cookies → copy `sessionKey`\n**Codex**: Open chatgpt.com → DevTools → Application → Cookies → copy `__Secure-next-auth.session-token`\n**Antigravity**: Open Settings → Accounts → Copy Bearer Token (or check `%APPDATA%\\antigravity\\auth.json` → `access_token`)",
+        "data": {
+          "data_source": "Provider",
+          "session_token": "Session Token / Bearer Token",
+          "account_label": "Account Label (Optional)"
+        },
+        "data_description": {
+          "data_source": "Select the AI provider to connect to",
+          "session_token": "Your session token or bearer token (see instructions above)",
+          "account_label": "Optional display name, e.g. 'My Claude Max'"
+        }
       }
     },
     "error": {
@@ -52,6 +67,8 @@
       "password_required": "Password is required for 9Router",
       "api_key_required": "API Key is required for Trouter",
       "url_required": "Base URL is required",
+      "session_token_required": "Session token is required",
+      "invalid_session": "Session token is invalid or expired — please obtain a fresh token",
       "unknown": "Unexpected error occurred"
     },
     "abort": {

@@ -14,7 +14,10 @@ from .const import (
     CONF_PROXY_URL,
     CONF_API_KEY,
     CONF_DATA_SOURCE,
+    CONF_SESSION_TOKEN,
+    CONF_ACCOUNT_LABEL,
     DATA_SOURCES,
+    DIRECT_PROVIDERS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,7 +34,7 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the initial step - show menu."""
         return self.async_show_menu(
             step_id="user",
-            menu_options=["api_proxy", "trouter"]
+            menu_options=["api_proxy", "trouter", "direct_provider"]
         )
 
     async def async_step_api_proxy(
@@ -128,6 +131,111 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }
         )
 
+
+    async def async_step_direct_provider(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle Direct Provider (Claude / Codex / Antigravity) configuration."""
+        import hashlib
+        import aiohttp
+
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            session_token = user_input.get(CONF_SESSION_TOKEN, "").strip()
+            data_source = user_input.get(CONF_DATA_SOURCE, "claude_direct")
+
+            if not session_token:
+                errors["base"] = "session_token_required"
+            else:
+                # Quick validation — try a lightweight call to the provider API
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        if data_source == "claude_direct":
+                            async with session.get(
+                                "https://claude.ai/api/organizations",
+                                headers={
+                                    "Cookie": f"sessionKey={session_token}",
+                                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                                },
+                                timeout=15,
+                            ) as resp:
+                                if resp.status in (401, 403):
+                                    errors["base"] = "invalid_session"
+                                elif not resp.ok:
+                                    errors["base"] = "cannot_connect"
+                        elif data_source == "codex_direct":
+                            async with session.get(
+                                "https://chatgpt.com/backend-api/codex/usage",
+                                headers={
+                                    "Cookie": f"__Secure-next-auth.session-token={session_token}",
+                                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                                    "Referer": "https://chatgpt.com/",
+                                },
+                                timeout=15,
+                            ) as resp:
+                                if resp.status in (401, 403):
+                                    errors["base"] = "invalid_session"
+                                elif not resp.ok:
+                                    errors["base"] = "cannot_connect"
+                        elif data_source == "antigravity_direct":
+                            async with session.get(
+                                "https://colab.research.google.com/api/quota",
+                                headers={
+                                    "Authorization": f"Bearer {session_token}",
+                                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                                },
+                                timeout=15,
+                            ) as resp:
+                                if resp.status in (401, 403):
+                                    errors["base"] = "invalid_session"
+                                elif not resp.ok:
+                                    errors["base"] = "cannot_connect"
+                except aiohttp.ClientError:
+                    errors["base"] = "cannot_connect"
+                except Exception:  # noqa: BLE001
+                    errors["base"] = "unknown"
+
+            if not errors:
+                token_hash = hashlib.md5(session_token.encode("utf-8")).hexdigest()[:10]
+                unique_id = f"{data_source}_{token_hash}"
+                await self.async_set_unique_id(unique_id)
+                self._abort_if_unique_id_configured()
+
+                provider_label = DIRECT_PROVIDERS.get(data_source, data_source)
+                account_label = user_input.get(CONF_ACCOUNT_LABEL, "").strip() or provider_label
+                title = f"{provider_label} Direct — {account_label}"
+
+                return self.async_create_entry(title=title, data=user_input)
+
+        # Provider dropdown options
+        provider_options = [
+            selector.SelectOptionDict(value="claude_direct", label="Claude (claude.ai)"),
+            selector.SelectOptionDict(value="codex_direct", label="Codex (chatgpt.com)"),
+            selector.SelectOptionDict(value="antigravity_direct", label="Antigravity"),
+        ]
+
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_DATA_SOURCE, default="claude_direct"): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=provider_options,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Required(CONF_SESSION_TOKEN): selector.TextSelector(
+                    selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+                ),
+                vol.Optional(CONF_ACCOUNT_LABEL, default=""): str,
+            }
+        )
+
+        return self.async_show_form(
+            step_id="direct_provider",
+            data_schema=schema,
+            errors=errors,
+        )
+
     @staticmethod
     @callback
     def async_get_options_flow(
@@ -161,6 +269,15 @@ class AIQuotaOptionsFlowHandler(config_entries.OptionsFlow):
                     vol.Optional(CONF_API_KEY, default=str(options.get(CONF_API_KEY) or "")): selector.TextSelector(
                         selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
                     ),
+                }
+            )
+        elif data_source in ("claude_direct", "codex_direct", "antigravity_direct"):
+            schema = vol.Schema(
+                {
+                    vol.Optional(CONF_SESSION_TOKEN, default=str(options.get(CONF_SESSION_TOKEN) or "")): selector.TextSelector(
+                        selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+                    ),
+                    vol.Optional(CONF_ACCOUNT_LABEL, default=str(options.get(CONF_ACCOUNT_LABEL) or "")): str,
                 }
             )
         else:
