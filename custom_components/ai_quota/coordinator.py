@@ -62,7 +62,22 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
         if provider == "antigravity":
             groups = {}
             models_data = data.get("models", {})
-            for name, m_data in models_data.items():
+            for key, m_data in models_data.items():
+                name = m_data.get("displayName") or m_data.get("display_name") or key
+                if not m_data.get("displayName") and not m_data.get("display_name"):
+                    if key == 'rev19-uic3-1p': name = 'Gemini 2.5 Computer Use'
+                    elif key == 'gemini-3-pro-image': name = 'Gemini 3 Pro Image'
+                    elif key == 'gemini-2.5-flash-lite': name = 'Gemini 2.5 Flash Lite'
+                    elif key == 'gemini-2.5-flash': name = 'Gemini 2.5 Flash'
+                    elif key == 'Gemini-Pro-Agent': name = 'Gemini 3.1 Pro (High)'
+                    elif key == 'Gemini-3-Flash-Agent': name = 'Gemini 3.5 Flash (High)'
+                    elif key == 'Gemini-3.5-Flash-Low': name = 'Gemini 3.5 Flash (Medium)'
+                    elif key == 'Gemini-3.1-Pro-Low': name = 'Gemini 3.1 Pro (Low)'
+                    elif key == 'Claude-Opus-4-6-Thinking': name = 'Claude Opus 4.6 (Thinking)'
+                    elif key == 'Claude-Sonnet-4-6': name = 'Claude Sonnet 4.6 (Thinking)'
+                    elif key == 'Gpt-Oss-120B-Medium': name = 'GPT-OSS 120B (Medium)'
+                    elif key == 'Gemini-3-Flash': name = 'Gemini 3 Flash'
+
                 frac = m_data.get("remainingFraction")
                 # Fallback rule: if no remainingFraction provided but exists in models, it implies 100% full limit
                 parsed_remaining = float(frac) if frac is not None else 1.0

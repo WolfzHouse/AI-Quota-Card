@@ -407,6 +407,14 @@ class AIQuotaCard extends HTMLElement {
              else if (key === 'gemini-3-pro-image') name = 'Gemini 3 Pro Image';
              else if (key === 'gemini-2.5-flash-lite') name = 'Gemini 2.5 Flash Lite';
              else if (key === 'gemini-2.5-flash') name = 'Gemini 2.5 Flash';
+             else if (key === 'Gemini-Pro-Agent') name = 'Gemini 3.1 Pro (High)';
+             else if (key === 'Gemini-3-Flash-Agent') name = 'Gemini 3.5 Flash (High)';
+             else if (key === 'Gemini-3.5-Flash-Low') name = 'Gemini 3.5 Flash (Medium)';
+             else if (key === 'Gemini-3.1-Pro-Low') name = 'Gemini 3.1 Pro (Low)';
+             else if (key === 'Claude-Opus-4-6-Thinking') name = 'Claude Opus 4.6 (Thinking)';
+             else if (key === 'Claude-Sonnet-4-6') name = 'Claude Sonnet 4.6 (Thinking)';
+             else if (key === 'Gpt-Oss-120B-Medium') name = 'GPT-OSS 120B (Medium)';
+             else if (key === 'Gemini-3-Flash') name = 'Gemini 3 Flash';
          }
          
          const ri = val.quotaInfo || val;
@@ -780,13 +788,25 @@ class AIQuotaCard extends HTMLElement {
       });
     }
 
+      let titleIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>`;
+      
+      if (isAntigravity) {
+          titleIcon = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <rect width="24" height="24" rx="4" fill="#EC4899"/>
+  <circle cx="12" cy="8" r="2" fill="#FFFFFF"/>
+  <path d="M12 10v4M9 14l3 3 3-3" fill="none" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M8 18h8" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M7 6l2 2M17 6l-2 2" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+</svg>`;
+      }
+
     this.shadowRoot.innerHTML = `
       <style>${this.getStyles()}</style>
       <ha-card>
         <div class="header">
           <div class="header-info">
             <div class="title-row">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+              ${titleIcon}
               ${displayEmail}
             </div>
             <div class="badges-row">
