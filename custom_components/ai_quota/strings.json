@@ -23,9 +23,9 @@
       },
       "direct_oauth": {
         "title": "Log in to {provider}",
-        "description": "Open the login link, sign in, then paste the URL from your browser below.",
+        "description": "{instructions}",
         "data": {
-          "redirect_url": "Redirect URL (paste from browser address bar)"
+          "redirect_url": "Redirect URL or Session Token"
         }
       }
     },

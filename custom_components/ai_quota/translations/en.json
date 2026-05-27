@@ -60,12 +60,12 @@
       },
       "direct_oauth": {
         "title": "Log in to {provider}",
-        "description": "**Step 1**: Open this link and log in: [{oauth_url}]({oauth_url})\n\n{instructions}\n\n**Tip**: You can also paste a raw session token directly into the field below if you already have one.",
+        "description": "{instructions}\n\n**Tip**: You can also paste a raw session token directly into the field below if you already have one.",
         "data": {
-          "redirect_url": "Redirect URL (paste from browser address bar)"
+          "redirect_url": "Redirect URL or Session Token"
         },
         "data_description": {
-          "redirect_url": "The full URL from your browser after login, e.g. https://claude.ai/new?sessionKey=sk-ant-..."
+          "redirect_url": "Paste the redirect URL or raw token here."
         }
       }
     },

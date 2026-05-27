@@ -132,24 +132,29 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
 
-    # OAuth authorize URLs and instructions per provider
-    _OAUTH_URLS: dict[str, tuple[str, str]] = {
+    # Static login URLs for Claude and Antigravity (no PKCE needed — token extracted from redirect)
+    _STATIC_OAUTH_URLS: dict[str, str] = {
         "claude_direct": (
-            "https://claude.ai/login",
-            "Click the link above to log in to Claude, then copy the full URL "
-            "from your browser's address bar and paste it in the field below.",
-        ),
-        "codex_direct": (
-            "https://chatgpt.com/auth/login",
-            "Click the link above to log in to ChatGPT/Codex, then copy the full URL "
-            "from your browser's address bar after login and paste it below.",
+            "**Step 1**: Open this link and log in: [https://claude.ai/login](https://claude.ai/login)\n\n"
+            "After logging in, copy the **full URL** from your browser's address bar "
+            "(it will contain `sessionKey=...`) and paste it below."
         ),
         "antigravity_direct": (
-            "https://antigravity.google/auth/login",
-            "Click the link above, sign in with Google, then copy the full URL "
-            "from your browser's address bar and paste it below.",
+            "**Step 1**: Open your Antigravity IDE Settings → Accounts → Copy Bearer Token\n\n"
+            "(Alternatively, open `%APPDATA%\\antigravity\\auth.json` and copy the `access_token`).\n\n"
+            "Paste the raw token in the field below."
         ),
     }
+
+    # Codex CLI OAuth constants (PKCE / authorization-code flow)
+    _CODEX_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
+    _CODEX_REDIRECT_URI = "http://localhost:1455/auth/callback"
+    _CODEX_AUTH_URL = "https://auth.openai.com/oauth/authorize"
+    _CODEX_TOKEN_URL = "https://auth.openai.com/oauth/token"
+
+    # ------------------------------------------------------------------ #
+    # Step 1 — pick provider
+    # ------------------------------------------------------------------ #
 
     async def async_step_direct_provider(
         self, user_input: dict[str, Any] | None = None
@@ -184,21 +189,83 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors={},
         )
 
+    # ------------------------------------------------------------------ #
+    # Step 2 — generate OAuth URL, accept pasted redirect, get token
+    # ------------------------------------------------------------------ #
+
     async def async_step_direct_oauth(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Step 2 — show OAuth URL, accept pasted redirect URL, extract + validate token."""
+        """Step 2 — show OAuth login URL, accept pasted redirect URL, extract/exchange token."""
         import hashlib
+        import secrets
+        import base64
         import aiohttp
+        from urllib.parse import urlencode, quote
 
         data_source = getattr(self, "_direct_data_source", "claude_direct")
         account_label = getattr(self, "_direct_account_label", "")
         provider_label = DIRECT_PROVIDERS.get(data_source, data_source)
 
-        oauth_url, instructions = self._OAUTH_URLS.get(
-            data_source,
-            ("https://claude.ai/login", "Log in and paste the redirect URL below.")
-        )
+        # ---- Build the OAuth URL (first call: no user_input yet) ---- #
+        # For Codex: generate PKCE verifier/challenge + state if not already done
+        if data_source == "codex_direct" and not hasattr(self, "_codex_verifier"):
+            verifier = secrets.token_urlsafe(43)          # 43-char url-safe random string
+            challenge = base64.urlsafe_b64encode(
+                hashlib.sha256(verifier.encode("ascii")).digest()
+            ).rstrip(b"=").decode("ascii")
+            state = secrets.token_urlsafe(32)
+            self._codex_verifier = verifier
+            self._codex_state = state
+            params = urlencode({
+                "response_type": "code",
+                "client_id": self._CODEX_CLIENT_ID,
+                "redirect_uri": self._CODEX_REDIRECT_URI,
+                "scope": "openid profile email offline_access",
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+                "id_token_add_organizations": "true",
+                "codex_cli_simplified_flow": "true",
+                "originator": "codex_cli_rs",
+                "state": state,
+            })
+            oauth_url = f"{self._CODEX_AUTH_URL}?{params}"
+            instructions = (
+                f"**Step 1**: Open this link and log in: [Login to Codex]({oauth_url})\n\n"
+                "After signing in, your browser will redirect to `localhost:1455` (which is not running, "
+                "so you’ll get a ‘connection refused’ error — that’s expected). "
+                "Copy the **full URL** from the address bar anyway and paste it below."
+            )
+        elif data_source == "codex_direct":
+            # Re-render the form with the same URL (e.g., on validation error)
+            verifier = self._codex_verifier
+            challenge = base64.urlsafe_b64encode(
+                hashlib.sha256(verifier.encode("ascii")).digest()
+            ).rstrip(b"=").decode("ascii")
+            params = urlencode({
+                "response_type": "code",
+                "client_id": self._CODEX_CLIENT_ID,
+                "redirect_uri": self._CODEX_REDIRECT_URI,
+                "scope": "openid profile email offline_access",
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+                "id_token_add_organizations": "true",
+                "codex_cli_simplified_flow": "true",
+                "originator": "codex_cli_rs",
+                "state": self._codex_state,
+            })
+            oauth_url = f"{self._CODEX_AUTH_URL}?{params}"
+            instructions = (
+                f"**Step 1**: Open this link and log in: [Login to Codex]({oauth_url})\n\n"
+                "After signing in your browser will redirect to `localhost:1455` (which is not running — "
+                "that’s normal). Copy the **full URL** from the address bar and paste it below."
+            )
+        else:
+            instructions = self._STATIC_OAUTH_URLS.get(
+                data_source,
+                "Paste your token below."
+            )
+            oauth_url = ""
 
         errors: dict[str, str] = {}
 
@@ -207,11 +274,63 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not redirect_url:
                 errors["base"] = "session_token_required"
             else:
-                session_token = self._extract_token_from_url(data_source, redirect_url)
-                if not session_token:
-                    errors["base"] = "invalid_session"
+                session_token: str | None = None
+
+                # ---- Codex: PKCE code exchange ---- #
+                if data_source == "codex_direct":
+                    from urllib.parse import urlparse, parse_qs
+                    auth_code = self._extract_codex_code(redirect_url)
+                    if not auth_code:
+                        errors["base"] = "invalid_session"
+                    else:
+                        # Verify state if present
+                        parsed = urlparse(redirect_url)
+                        qs_params = parse_qs(parsed.query)
+                        returned_state = (qs_params.get("state") or [""])[0]
+                        if returned_state and returned_state != getattr(self, "_codex_state", ""):
+                            errors["base"] = "invalid_session"
+                        else:
+                            try:
+                                async with aiohttp.ClientSession() as http:
+                                    async with http.post(
+                                        self._CODEX_TOKEN_URL,
+                                        json={
+                                            "grant_type": "authorization_code",
+                                            "code": auth_code,
+                                            "redirect_uri": self._CODEX_REDIRECT_URI,
+                                            "client_id": self._CODEX_CLIENT_ID,
+                                            "code_verifier": self._codex_verifier,
+                                        },
+                                        headers={"Content-Type": "application/json"},
+                                        timeout=20,
+                                    ) as resp:
+                                        if not resp.ok:
+                                            _LOGGER.debug(
+                                                "[AI Quota] Codex token exchange failed: %s %s",
+                                                resp.status, await resp.text()
+                                            )
+                                            errors["base"] = "invalid_session"
+                                        else:
+                                            token_data = await resp.json()
+                                            session_token = (
+                                                token_data.get("access_token")
+                                                or token_data.get("id_token")
+                                            )
+                                            if not session_token:
+                                                errors["base"] = "invalid_session"
+                            except aiohttp.ClientError:
+                                errors["base"] = "cannot_connect"
+                            except Exception:  # noqa: BLE001
+                                errors["base"] = "unknown"
+
+                # ---- Claude / Antigravity: extract token from URL ---- #
                 else:
-                    # Live validation against the provider
+                    session_token = self._extract_token_from_url(data_source, redirect_url)
+                    if not session_token:
+                        errors["base"] = "invalid_session"
+
+                # ---- Validate extracted/exchanged token ---- #
+                if not errors and session_token:
                     try:
                         async with aiohttp.ClientSession() as http:
                             if data_source == "claude_direct":
@@ -231,9 +350,8 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 async with http.get(
                                     "https://chatgpt.com/backend-api/codex/usage",
                                     headers={
-                                        "Cookie": f"__Secure-next-auth.session-token={session_token}",
+                                        "Authorization": f"Bearer {session_token}",
                                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                                        "Referer": "https://chatgpt.com/",
                                     },
                                     timeout=15,
                                 ) as resp:
@@ -259,7 +377,7 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     except Exception:  # noqa: BLE001
                         errors["base"] = "unknown"
 
-                if not errors:
+                if not errors and session_token:
                     token_hash = hashlib.md5(session_token.encode("utf-8")).hexdigest()[:10]
                     unique_id = f"{data_source}_{token_hash}"
                     await self.async_set_unique_id(unique_id)
@@ -294,13 +412,28 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
+    # ------------------------------------------------------------------ #
+    # Helpers
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _extract_codex_code(redirect_url: str) -> str | None:
+        """Extract the authorization `code` from the Codex callback URL.
+
+        Expected form: http://localhost:1455/auth/callback?code=XXXX&state=YYYY
+        """
+        from urllib.parse import urlparse, parse_qs
+        parsed = urlparse(redirect_url.strip())
+        qs = parse_qs(parsed.query)
+        codes = qs.get("code")
+        return codes[0] if codes else None
+
     @staticmethod
     def _extract_token_from_url(data_source: str, text: str) -> str | None:
         """Extract a session token from a pasted URL or raw token string.
 
-        Strategy per provider:
+        Used for Claude and Antigravity (non-PKCE flows).
         - claude_direct:       ?sessionKey=  |  #sessionKey=  |  last path segment
-        - codex_direct:        ?session_token= | any long query value (JWT)
         - antigravity_direct:  ?access_token= | #access_token=
         Falls back to treating the entire input as a raw token.
         """
@@ -310,7 +443,7 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if not stripped:
             return None
 
-        # Not a URL — treat as raw token directly
+        # Not a URL — treat as raw token
         if not stripped.startswith("http"):
             return stripped
 
@@ -326,22 +459,10 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 v = _first(src, "sessionKey")
                 if v:
                     return v
-            # last path segment if it looks like a token
+            # Last path segment if it looks like a token (>30 chars)
             parts = [p for p in parsed.path.split("/") if p]
             if parts and len(parts[-1]) > 30:
                 return parts[-1]
-
-        elif data_source == "codex_direct":
-            for key in ("session_token", "__Secure-next-auth.session-token", "token"):
-                for src in (qs, frag):
-                    v = _first(src, key)
-                    if v:
-                        return v
-            # any long query value looks like a JWT
-            for src in (qs, frag):
-                for vals in src.values():
-                    if vals and len(vals[0]) > 80:
-                        return unquote(vals[0])
 
         elif data_source == "antigravity_direct":
             for key in ("access_token", "id_token", "token"):

@@ -786,10 +786,9 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                 raise UpdateFailed("Codex direct: no session token configured")
 
             headers = {
-                "Cookie": f"__Secure-next-auth.session-token={session_token}",
+                "Authorization": f"Bearer {session_token}",
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                 "Accept": "application/json",
-                "Referer": "https://chatgpt.com/",
             }
 
             try:
