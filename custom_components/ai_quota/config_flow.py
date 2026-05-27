@@ -279,28 +279,33 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # ---- Codex: PKCE code exchange ---- #
                 if data_source == "codex_direct":
                     from urllib.parse import urlparse, parse_qs
-                    auth_code = self._extract_codex_code(redirect_url)
-                    if not auth_code:
-                        errors["base"] = "invalid_session"
+                    
+                    # Check if it looks like a raw token instead of a redirect URL
+                    if not redirect_url.startswith("http"):
+                        session_token = redirect_url
                     else:
-                        # Verify state if present
-                        parsed = urlparse(redirect_url)
-                        qs_params = parse_qs(parsed.query)
-                        returned_state = (qs_params.get("state") or [""])[0]
-                        if returned_state and returned_state != getattr(self, "_codex_state", ""):
+                        auth_code = self._extract_codex_code(redirect_url)
+                        if not auth_code:
                             errors["base"] = "invalid_session"
                         else:
-                            try:
-                                async with aiohttp.ClientSession() as http:
-                                    async with http.post(
-                                        self._CODEX_TOKEN_URL,
-                                        json={
-                                            "grant_type": "authorization_code",
-                                            "code": auth_code,
-                                            "redirect_uri": self._CODEX_REDIRECT_URI,
-                                            "client_id": self._CODEX_CLIENT_ID,
-                                            "code_verifier": self._codex_verifier,
-                                        },
+                            # Verify state if present
+                            parsed = urlparse(redirect_url)
+                            qs_params = parse_qs(parsed.query)
+                            returned_state = (qs_params.get("state") or [""])[0]
+                            if returned_state and returned_state != getattr(self, "_codex_state", ""):
+                                errors["base"] = "invalid_session"
+                            else:
+                                try:
+                                    async with aiohttp.ClientSession() as http:
+                                        async with http.post(
+                                            self._CODEX_TOKEN_URL,
+                                            json={
+                                                "grant_type": "authorization_code",
+                                                "code": auth_code,
+                                                "redirect_uri": self._CODEX_REDIRECT_URI,
+                                                "client_id": self._CODEX_CLIENT_ID,
+                                                "code_verifier": self._codex_verifier,
+                                            },
                                         headers={"Content-Type": "application/json"},
                                         timeout=20,
                                     ) as resp:
