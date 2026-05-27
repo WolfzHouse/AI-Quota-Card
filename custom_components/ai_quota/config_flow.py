@@ -132,83 +132,34 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
 
+    # OAuth authorize URLs and instructions per provider
+    _OAUTH_URLS: dict[str, tuple[str, str]] = {
+        "claude_direct": (
+            "https://claude.ai/login",
+            "Click the link above to log in to Claude, then copy the full URL "
+            "from your browser's address bar and paste it in the field below.",
+        ),
+        "codex_direct": (
+            "https://chatgpt.com/auth/login",
+            "Click the link above to log in to ChatGPT/Codex, then copy the full URL "
+            "from your browser's address bar after login and paste it below.",
+        ),
+        "antigravity_direct": (
+            "https://antigravity.google/auth/login",
+            "Click the link above, sign in with Google, then copy the full URL "
+            "from your browser's address bar and paste it below.",
+        ),
+    }
+
     async def async_step_direct_provider(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Handle Direct Provider (Claude / Codex / Antigravity) configuration."""
-        import hashlib
-        import aiohttp
-
-        errors: dict[str, str] = {}
-
+        """Step 1 — choose provider and show the login URL."""
         if user_input is not None:
-            session_token = user_input.get(CONF_SESSION_TOKEN, "").strip()
-            data_source = user_input.get(CONF_DATA_SOURCE, "claude_direct")
+            self._direct_data_source = user_input.get(CONF_DATA_SOURCE, "claude_direct")
+            self._direct_account_label = user_input.get(CONF_ACCOUNT_LABEL, "").strip()
+            return await self.async_step_direct_oauth()
 
-            if not session_token:
-                errors["base"] = "session_token_required"
-            else:
-                # Quick validation — try a lightweight call to the provider API
-                try:
-                    async with aiohttp.ClientSession() as session:
-                        if data_source == "claude_direct":
-                            async with session.get(
-                                "https://claude.ai/api/organizations",
-                                headers={
-                                    "Cookie": f"sessionKey={session_token}",
-                                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                                },
-                                timeout=15,
-                            ) as resp:
-                                if resp.status in (401, 403):
-                                    errors["base"] = "invalid_session"
-                                elif not resp.ok:
-                                    errors["base"] = "cannot_connect"
-                        elif data_source == "codex_direct":
-                            async with session.get(
-                                "https://chatgpt.com/backend-api/codex/usage",
-                                headers={
-                                    "Cookie": f"__Secure-next-auth.session-token={session_token}",
-                                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                                    "Referer": "https://chatgpt.com/",
-                                },
-                                timeout=15,
-                            ) as resp:
-                                if resp.status in (401, 403):
-                                    errors["base"] = "invalid_session"
-                                elif not resp.ok:
-                                    errors["base"] = "cannot_connect"
-                        elif data_source == "antigravity_direct":
-                            async with session.get(
-                                "https://colab.research.google.com/api/quota",
-                                headers={
-                                    "Authorization": f"Bearer {session_token}",
-                                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                                },
-                                timeout=15,
-                            ) as resp:
-                                if resp.status in (401, 403):
-                                    errors["base"] = "invalid_session"
-                                elif not resp.ok:
-                                    errors["base"] = "cannot_connect"
-                except aiohttp.ClientError:
-                    errors["base"] = "cannot_connect"
-                except Exception:  # noqa: BLE001
-                    errors["base"] = "unknown"
-
-            if not errors:
-                token_hash = hashlib.md5(session_token.encode("utf-8")).hexdigest()[:10]
-                unique_id = f"{data_source}_{token_hash}"
-                await self.async_set_unique_id(unique_id)
-                self._abort_if_unique_id_configured()
-
-                provider_label = DIRECT_PROVIDERS.get(data_source, data_source)
-                account_label = user_input.get(CONF_ACCOUNT_LABEL, "").strip() or provider_label
-                title = f"{provider_label} Direct — {account_label}"
-
-                return self.async_create_entry(title=title, data=user_input)
-
-        # Provider dropdown options
         provider_options = [
             selector.SelectOptionDict(value="claude_direct", label="Claude (claude.ai)"),
             selector.SelectOptionDict(value="codex_direct", label="Codex (chatgpt.com)"),
@@ -223,9 +174,6 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
-                vol.Required(CONF_SESSION_TOKEN): selector.TextSelector(
-                    selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
-                ),
                 vol.Optional(CONF_ACCOUNT_LABEL, default=""): str,
             }
         )
@@ -233,8 +181,183 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="direct_provider",
             data_schema=schema,
-            errors=errors,
+            errors={},
         )
+
+    async def async_step_direct_oauth(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Step 2 — show OAuth URL, accept pasted redirect URL, extract + validate token."""
+        import hashlib
+        import aiohttp
+
+        data_source = getattr(self, "_direct_data_source", "claude_direct")
+        account_label = getattr(self, "_direct_account_label", "")
+        provider_label = DIRECT_PROVIDERS.get(data_source, data_source)
+
+        oauth_url, instructions = self._OAUTH_URLS.get(
+            data_source,
+            ("https://claude.ai/login", "Log in and paste the redirect URL below.")
+        )
+
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            redirect_url = (user_input.get("redirect_url") or "").strip()
+            if not redirect_url:
+                errors["base"] = "session_token_required"
+            else:
+                session_token = self._extract_token_from_url(data_source, redirect_url)
+                if not session_token:
+                    errors["base"] = "invalid_session"
+                else:
+                    # Live validation against the provider
+                    try:
+                        async with aiohttp.ClientSession() as http:
+                            if data_source == "claude_direct":
+                                async with http.get(
+                                    "https://claude.ai/api/organizations",
+                                    headers={
+                                        "Cookie": f"sessionKey={session_token}",
+                                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                                    },
+                                    timeout=15,
+                                ) as resp:
+                                    if resp.status in (401, 403):
+                                        errors["base"] = "invalid_session"
+                                    elif not resp.ok:
+                                        errors["base"] = "cannot_connect"
+                            elif data_source == "codex_direct":
+                                async with http.get(
+                                    "https://chatgpt.com/backend-api/codex/usage",
+                                    headers={
+                                        "Cookie": f"__Secure-next-auth.session-token={session_token}",
+                                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                                        "Referer": "https://chatgpt.com/",
+                                    },
+                                    timeout=15,
+                                ) as resp:
+                                    if resp.status in (401, 403):
+                                        errors["base"] = "invalid_session"
+                                    elif not resp.ok:
+                                        errors["base"] = "cannot_connect"
+                            elif data_source == "antigravity_direct":
+                                async with http.get(
+                                    "https://colab.research.google.com/api/quota",
+                                    headers={
+                                        "Authorization": f"Bearer {session_token}",
+                                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                                    },
+                                    timeout=15,
+                                ) as resp:
+                                    if resp.status in (401, 403):
+                                        errors["base"] = "invalid_session"
+                                    elif not resp.ok:
+                                        errors["base"] = "cannot_connect"
+                    except aiohttp.ClientError:
+                        errors["base"] = "cannot_connect"
+                    except Exception:  # noqa: BLE001
+                        errors["base"] = "unknown"
+
+                if not errors:
+                    token_hash = hashlib.md5(session_token.encode("utf-8")).hexdigest()[:10]
+                    unique_id = f"{data_source}_{token_hash}"
+                    await self.async_set_unique_id(unique_id)
+                    self._abort_if_unique_id_configured()
+
+                    label = account_label or provider_label
+                    return self.async_create_entry(
+                        title=f"{provider_label} Direct — {label}",
+                        data={
+                            CONF_DATA_SOURCE: data_source,
+                            CONF_SESSION_TOKEN: session_token,
+                            CONF_ACCOUNT_LABEL: label,
+                        },
+                    )
+
+        schema = vol.Schema(
+            {
+                vol.Required("redirect_url"): selector.TextSelector(
+                    selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
+                ),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="direct_oauth",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={
+                "provider": provider_label,
+                "oauth_url": oauth_url,
+                "instructions": instructions,
+            },
+        )
+
+    @staticmethod
+    def _extract_token_from_url(data_source: str, text: str) -> str | None:
+        """Extract a session token from a pasted URL or raw token string.
+
+        Strategy per provider:
+        - claude_direct:       ?sessionKey=  |  #sessionKey=  |  last path segment
+        - codex_direct:        ?session_token= | any long query value (JWT)
+        - antigravity_direct:  ?access_token= | #access_token=
+        Falls back to treating the entire input as a raw token.
+        """
+        from urllib.parse import urlparse, parse_qs, unquote
+
+        stripped = text.strip()
+        if not stripped:
+            return None
+
+        # Not a URL — treat as raw token directly
+        if not stripped.startswith("http"):
+            return stripped
+
+        parsed = urlparse(stripped)
+        qs = parse_qs(parsed.query)
+        frag = parse_qs(parsed.fragment)
+
+        def _first(d: dict, key: str) -> str | None:
+            return unquote(d[key][0]) if key in d and d[key] else None
+
+        if data_source == "claude_direct":
+            for src in (qs, frag):
+                v = _first(src, "sessionKey")
+                if v:
+                    return v
+            # last path segment if it looks like a token
+            parts = [p for p in parsed.path.split("/") if p]
+            if parts and len(parts[-1]) > 30:
+                return parts[-1]
+
+        elif data_source == "codex_direct":
+            for key in ("session_token", "__Secure-next-auth.session-token", "token"):
+                for src in (qs, frag):
+                    v = _first(src, key)
+                    if v:
+                        return v
+            # any long query value looks like a JWT
+            for src in (qs, frag):
+                for vals in src.values():
+                    if vals and len(vals[0]) > 80:
+                        return unquote(vals[0])
+
+        elif data_source == "antigravity_direct":
+            for key in ("access_token", "id_token", "token"):
+                for src in (qs, frag):
+                    v = _first(src, key)
+                    if v:
+                        return v
+
+        # Generic fallback — any long query/fragment value
+        for src in (qs, frag):
+            for vals in src.values():
+                if vals and len(vals[0]) > 30:
+                    return unquote(vals[0])
+
+        return None
+
 
     @staticmethod
     @callback

@@ -15,11 +15,17 @@
       },
       "direct_provider": {
         "title": "Configure Direct Provider Connection",
-        "description": "Connect directly to Claude, Codex, or Antigravity using a session token.",
+        "description": "Select the provider you want to connect to. You will be guided through a login flow.",
         "data": {
           "data_source": "Provider",
-          "session_token": "Session Token / Bearer Token",
           "account_label": "Account Label (Optional)"
+        }
+      },
+      "direct_oauth": {
+        "title": "Log in to {provider}",
+        "description": "Open the login link, sign in, then paste the URL from your browser below.",
+        "data": {
+          "redirect_url": "Redirect URL (paste from browser address bar)"
         }
       }
     },

@@ -48,16 +48,24 @@
       },
       "direct_provider": {
         "title": "Configure Direct Provider Connection",
-        "description": "Connect directly to Claude, Codex, or Antigravity using a session token.\n\n**Claude**: Open claude.ai → DevTools → Application → Cookies → copy `sessionKey`\n**Codex**: Open chatgpt.com → DevTools → Application → Cookies → copy `__Secure-next-auth.session-token`\n**Antigravity**: Open Settings → Accounts → Copy Bearer Token (or check `%APPDATA%\\antigravity\\auth.json` → `access_token`)",
+        "description": "Select the provider you want to connect to. You will be guided through a login flow.",
         "data": {
           "data_source": "Provider",
-          "session_token": "Session Token / Bearer Token",
           "account_label": "Account Label (Optional)"
         },
         "data_description": {
           "data_source": "Select the AI provider to connect to",
-          "session_token": "Your session token or bearer token (see instructions above)",
           "account_label": "Optional display name, e.g. 'My Claude Max'"
+        }
+      },
+      "direct_oauth": {
+        "title": "Log in to {provider}",
+        "description": "**Step 1**: Open this link and log in: [{oauth_url}]({oauth_url})\n\n{instructions}\n\n**Tip**: You can also paste a raw session token directly into the field below if you already have one.",
+        "data": {
+          "redirect_url": "Redirect URL (paste from browser address bar)"
+        },
+        "data_description": {
+          "redirect_url": "The full URL from your browser after login, e.g. https://claude.ai/new?sessionKey=sk-ant-..."
         }
       }
     },
