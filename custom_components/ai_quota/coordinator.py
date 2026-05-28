@@ -54,6 +54,30 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception:
             return ""
 
+    def _get_dynamic_name(self, default_label: str, fallback: str, jwt_token: str = None, api_name: str = None) -> str:
+        """Determine best name to show from token or API if the user didn't provide a custom label."""
+        if default_label and default_label not in ("Claude", "Codex", "Antigravity"):
+            return default_label
+        
+        if api_name:
+            return api_name
+            
+        if jwt_token:
+            try:
+                import json
+                import base64
+                parts = jwt_token.split(".")
+                if len(parts) >= 2:
+                    padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
+                    data = json.loads(base64.urlsafe_b64decode(padded).decode("utf-8"))
+                    email = data.get("email") or data.get("unique_name") or data.get("name")
+                    if email:
+                        return email
+            except Exception:
+                pass
+                
+        return fallback
+
     def _parse_provider_data(self, provider: str, data: dict[str, Any]) -> list[dict[str, Any]]:
         """Ported logic from ai-quota-card.js to parse the response payload natively."""
         if not data or not isinstance(data, dict):
@@ -764,11 +788,14 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                     token_hash = hashlib.md5(session_token.encode("utf-8")).hexdigest()[:10]
                     conn_id = f"claude_direct_{token_hash}"
 
+                    org_name = orgs[0].get("name")
+                    final_name = self._get_dynamic_name(account_label, "Claude", api_name=org_name)
+
                     result_data["connections"][conn_id] = {
                         "id": conn_id,
                         "provider": "claude_direct",
-                        "name": account_label or "Claude",
-                        "email": account_label or "Claude Direct",
+                        "name": final_name,
+                        "email": org_name or final_name,
                         "plan": orgs[0].get("plan_name", "Claude Subscription"),
                         "isActive": True,
                         "items": parsed_items,
@@ -810,11 +837,13 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                 token_hash = hashlib.md5(session_token.encode("utf-8")).hexdigest()[:10]
                 conn_id = f"codex_direct_{token_hash}"
 
+                final_name = self._get_dynamic_name(account_label, "Codex", jwt_token=session_token)
+
                 result_data["connections"][conn_id] = {
                     "id": conn_id,
                     "provider": "codex_direct",
-                    "name": account_label or "Codex",
-                    "email": account_label or "Codex Direct",
+                    "name": final_name,
+                    "email": final_name,
                     "plan": raw_body.get("plan_type", "Codex Subscription"),
                     "isActive": True,
                     "items": parsed_items,
@@ -874,11 +903,14 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                 token_hash = hashlib.md5(session_token.encode("utf-8")).hexdigest()[:10]
                 conn_id = f"antigravity_direct_{token_hash}"
 
+                api_email = raw_body.get("email") if isinstance(raw_body, dict) else None
+                final_name = self._get_dynamic_name(account_label, "Antigravity", jwt_token=session_token, api_name=api_email)
+
                 result_data["connections"][conn_id] = {
                     "id": conn_id,
                     "provider": "antigravity_direct",
-                    "name": account_label or "Antigravity",
-                    "email": account_label or "Antigravity Direct",
+                    "name": final_name,
+                    "email": final_name,
                     "plan": "Antigravity",
                     "isActive": True,
                     "items": parsed_items,

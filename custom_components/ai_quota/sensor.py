@@ -31,11 +31,12 @@ async def async_setup_entry(
     import hashlib
     
     # Hub ID
+    is_direct = data_source in ("claude_direct", "codex_direct", "antigravity_direct")
     if data_source == "trouter":
         api_key_hash = hashlib.md5(str(entry.data.get('api_key', '')).encode('utf-8')).hexdigest()[:10]
         hub_id = f"{data_source}_{api_key_hash}"
         hub_name = "Trouter.click Hub"
-    elif data_source in ("claude_direct", "codex_direct", "antigravity_direct"):
+    elif is_direct:
         session_token = entry.data.get(CONF_SESSION_TOKEN, "")
         account_label = entry.data.get(CONF_ACCOUNT_LABEL, "").strip()
         token_hash = hashlib.md5(session_token.encode('utf-8')).hexdigest()[:10]
@@ -47,15 +48,16 @@ async def async_setup_entry(
         hub_id = f"{data_source}_{proxy_hash}"
         hub_name = f"9Router ({proxy_url})"
         
-    # Ensure hub device is created in the device registry
-    device_registry = dr.async_get(hass)
-    device_registry.async_get_or_create(
-        config_entry_id=entry.entry_id,
-        identifiers={(DOMAIN, hub_id)},
-        name=hub_name,
-        manufacturer="AI Quota",
-        model="AI Quota Hub",
-    )
+    # Ensure hub device is created in the device registry (only for proxy/hub sources)
+    if not is_direct:
+        device_registry = dr.async_get(hass)
+        device_registry.async_get_or_create(
+            config_entry_id=entry.entry_id,
+            identifiers={(DOMAIN, hub_id)},
+            name=hub_name,
+            manufacturer="AI Quota",
+            model="AI Quota Hub",
+        )
 
     data = coordinator.data
     if not data or not isinstance(data, dict):
@@ -71,7 +73,12 @@ async def async_setup_entry(
         email = conn_data.get("email", "Unknown Email")
         
         device_id = f"{data_source}_{conn_id}"
-        device_name = f"{provider.capitalize()} - {name}"
+        
+        if is_direct:
+            provider_display = data_source.replace("_direct", "").capitalize()
+            device_name = f"{provider_display} Direct — {name}" if name else f"{provider_display} Direct"
+        else:
+            device_name = f"{provider.capitalize()} - {name}"
 
         device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
@@ -79,8 +86,9 @@ async def async_setup_entry(
             manufacturer="AI Quota",
             model=plan,
             sw_version=email,
-            via_device=(DOMAIN, hub_id),
         )
+        if not is_direct:
+            device_info["via_device"] = (DOMAIN, hub_id)
 
         sensors.append(
             AIQuotaConnectionSensor(
