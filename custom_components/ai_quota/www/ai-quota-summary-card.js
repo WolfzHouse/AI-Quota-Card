@@ -409,7 +409,7 @@ class AIQuotaSummaryCard extends HTMLElement {
         
         // Quota usage text
         let usageText = q.usageDisplay || `${q.usage || 0} / ${q.limit || 0}`;
-        if (!q.usageDisplay && (q.usage === undefined || q.limit === undefined)) {
+        if (!q.usageDisplay && (q.usage === undefined || q.limit === undefined || q.usage === null || q.limit === null)) {
             usageText = "";
         }
         
