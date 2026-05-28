@@ -306,27 +306,27 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                                 "client_id": self._CODEX_CLIENT_ID,
                                                 "code_verifier": self._codex_verifier,
                                             },
-                                        headers={"Content-Type": "application/json"},
-                                        timeout=20,
-                                    ) as resp:
-                                        if not resp.ok:
-                                            _LOGGER.debug(
-                                                "[AI Quota] Codex token exchange failed: %s %s",
-                                                resp.status, await resp.text()
-                                            )
-                                            errors["base"] = "invalid_session"
-                                        else:
-                                            token_data = await resp.json()
-                                            session_token = (
-                                                token_data.get("access_token")
-                                                or token_data.get("id_token")
-                                            )
-                                            if not session_token:
+                                            headers={"Content-Type": "application/json"},
+                                            timeout=20,
+                                        ) as resp:
+                                            if not resp.ok:
+                                                _LOGGER.debug(
+                                                    "[AI Quota] Codex token exchange failed: %s %s",
+                                                    resp.status, await resp.text()
+                                                )
                                                 errors["base"] = "invalid_session"
-                            except aiohttp.ClientError:
-                                errors["base"] = "cannot_connect"
-                            except Exception:  # noqa: BLE001
-                                errors["base"] = "unknown"
+                                            else:
+                                                token_data = await resp.json()
+                                                session_token = (
+                                                    token_data.get("access_token")
+                                                    or token_data.get("id_token")
+                                                )
+                                                if not session_token:
+                                                    errors["base"] = "invalid_session"
+                                except aiohttp.ClientError:
+                                    errors["base"] = "cannot_connect"
+                                except Exception:  # noqa: BLE001
+                                    errors["base"] = "unknown"
 
                 # ---- Claude / Antigravity: extract token from URL ---- #
                 else:
