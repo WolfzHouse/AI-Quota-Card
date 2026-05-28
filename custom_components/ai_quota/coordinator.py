@@ -833,11 +833,25 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
 
                 parsed_items = self._parse_provider_data("codex", raw_body)
 
+                api_email = None
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(
+                            "https://chatgpt.com/backend-api/me",
+                            headers=headers,
+                            timeout=10,
+                        ) as me_resp:
+                            if me_resp.ok:
+                                me_data = await me_resp.json()
+                                api_email = me_data.get("email") or me_data.get("name")
+                except Exception:
+                    pass
+
                 import hashlib
                 token_hash = hashlib.md5(session_token.encode("utf-8")).hexdigest()[:10]
                 conn_id = f"codex_direct_{token_hash}"
 
-                final_name = self._get_dynamic_name(account_label, "Codex", jwt_token=session_token)
+                final_name = self._get_dynamic_name(account_label, "Codex", jwt_token=session_token, api_name=api_email)
 
                 result_data["connections"][conn_id] = {
                     "id": conn_id,
