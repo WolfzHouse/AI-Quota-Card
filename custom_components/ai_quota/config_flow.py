@@ -135,9 +135,10 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     # Static login URLs for Claude and Antigravity (no PKCE needed — token extracted from redirect)
     _STATIC_OAUTH_URLS: dict[str, str] = {
         "claude_direct": (
-            "**Step 1**: Open this link and log in: [https://claude.ai/login](https://claude.ai/login)\n\n"
-            "After logging in, copy the **full URL** from your browser's address bar "
-            "(it will contain `sessionKey=...`) and paste it below."
+            "**Step 1**: Open this link and log in: [https://claude.ai](https://claude.ai)\n\n"
+            "**Step 2**: Once logged in, open your browser's **Developer Tools** (F12 or right-click -> Inspect).\n\n"
+            "**Step 3**: Go to the **Application** (or Storage) tab -> Cookies -> `https://claude.ai`.\n\n"
+            "**Step 4**: Find the cookie named `sessionKey` (usually starts with `sk-ant-`), copy its value, and paste it below."
         ),
         "antigravity_direct": (
             "**Step 1**: Open your Antigravity IDE Settings → Accounts → Copy Bearer Token\n\n"
