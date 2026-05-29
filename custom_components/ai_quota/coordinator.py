@@ -8,6 +8,7 @@ from typing import Any
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
@@ -826,7 +827,12 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                         timeout=30,
                     ) as resp:
                         if resp.status in (401, 403):
-                            raise UpdateFailed("Codex direct: session token expired or invalid")
+                            raise ConfigEntryAuthFailed(
+                                "Codex direct: ChatGPT rejected the saved session token. "
+                                "Use the Home Assistant reauthentication flow to log in again, "
+                                "or open https://chatgpt.com, log out and back in, then copy a "
+                                "fresh __Secure-next-auth.session-token cookie from chatgpt.com."
+                            )
                         if not resp.ok:
                             raise UpdateFailed(f"Codex direct: usage request failed {resp.status}")
                         raw_body = await resp.json()

@@ -153,6 +153,36 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     _CODEX_AUTH_URL = "https://auth.openai.com/oauth/authorize"
     _CODEX_TOKEN_URL = "https://auth.openai.com/oauth/token"
 
+    async def async_step_reauth(
+        self, entry_data: dict[str, Any]
+    ) -> FlowResult:
+        """Start reauthentication for an existing direct provider entry."""
+        self._reauth_entry = self.hass.config_entries.async_get_entry(
+            self.context["entry_id"]
+        )
+        self._direct_data_source = entry_data.get(CONF_DATA_SOURCE, "codex_direct")
+        self._direct_account_label = entry_data.get(CONF_ACCOUNT_LABEL, "")
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Confirm reauthentication and continue to the provider login step."""
+        data_source = getattr(self, "_direct_data_source", "codex_direct")
+        provider_label = DIRECT_PROVIDERS.get(data_source, data_source)
+
+        if data_source != "codex_direct":
+            return self.async_abort(reason="reauth_not_supported")
+
+        if user_input is not None:
+            return await self.async_step_direct_oauth()
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema({}),
+            description_placeholders={"provider": provider_label},
+        )
+
     # ------------------------------------------------------------------ #
     # Step 1 — pick provider
     # ------------------------------------------------------------------ #
@@ -383,13 +413,31 @@ class AIQuotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     except Exception:  # noqa: BLE001
                         errors["base"] = "unknown"
 
-                if not errors and session_token:
-                    token_hash = hashlib.md5(session_token.encode("utf-8")).hexdigest()[:10]
-                    unique_id = f"{data_source}_{token_hash}"
-                    await self.async_set_unique_id(unique_id)
-                    self._abort_if_unique_id_configured()
+                    if not getattr(self, "_reauth_entry", None):
+                        token_hash = hashlib.md5(session_token.encode("utf-8")).hexdigest()[:10]
+                        unique_id = f"{data_source}_{token_hash}"
+                        await self.async_set_unique_id(unique_id)
+                        self._abort_if_unique_id_configured()
 
                     label = account_label or provider_label
+
+                    if reauth_entry := getattr(self, "_reauth_entry", None):
+                        new_data = dict(reauth_entry.data)
+                        new_data.update(
+                            {
+                                CONF_DATA_SOURCE: data_source,
+                                CONF_SESSION_TOKEN: session_token,
+                                CONF_ACCOUNT_LABEL: label,
+                            }
+                        )
+                        self.hass.config_entries.async_update_entry(
+                            reauth_entry,
+                            data=new_data,
+                            title=f"{provider_label} Direct — {label}",
+                        )
+                        await self.hass.config_entries.async_reload(reauth_entry.entry_id)
+                        return self.async_abort(reason="reauth_successful")
+
                     return self.async_create_entry(
                         title=f"{provider_label} Direct — {label}",
                         data={

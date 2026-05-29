@@ -27,6 +27,10 @@
         "data": {
           "redirect_url": "Redirect URL or Session Token"
         }
+      },
+      "reauth_confirm": {
+        "title": "Log in again to {provider}",
+        "description": "Your saved token was rejected. Click Submit to open the guided login flow and save a fresh token."
       }
     },
     "error": {
@@ -37,7 +41,9 @@
       "invalid_session": "Session token is invalid or expired — please obtain a fresh token"
     },
     "abort": {
-      "already_configured": "Device is already configured"
+      "already_configured": "Device is already configured",
+      "reauth_successful": "Reauthentication successful",
+      "reauth_not_supported": "Reauthentication is not supported for this provider yet"
     }
   },
   "options": {
