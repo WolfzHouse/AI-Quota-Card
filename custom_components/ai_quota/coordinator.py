@@ -445,12 +445,12 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                 if not isinstance(quota_data, dict):
                     continue
                 
-                used = float(quota_data.get("used", 0))
-                total = float(quota_data.get("total", 100))
-                remaining = float(quota_data.get("remaining", 0))
+                used = float(quota_data.get("used") or 0)
+                total = float(quota_data.get("total") or 100)
+                remaining = float(quota_data.get("remaining") or 0)
                 remaining_pct = quota_data.get("remainingPercentage")
-                reset_at = quota_data.get("resetAt", "")
-                unlimited = quota_data.get("unlimited", False)
+                reset_at = quota_data.get("resetAt") or ""
+                unlimited = quota_data.get("unlimited") or False
                 
                 # Calculate percentage (remaining)
                 if remaining_pct is not None:
@@ -521,11 +521,11 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
             extra_usage = data.get("extraUsage")
             if extra_usage and isinstance(extra_usage, dict):
                 if extra_usage.get("is_enabled"):
-                    used_credits = float(extra_usage.get("used_credits", 0))
-                    monthly_limit = float(extra_usage.get("monthly_limit", 0))
-                    utilization = float(extra_usage.get("utilization", 0))
+                    used_credits = float(extra_usage.get("used_credits") or 0)
+                    monthly_limit = float(extra_usage.get("monthly_limit") or 0)
+                    utilization = float(extra_usage.get("utilization") or 0)
                     currency = extra_usage.get("currency", "USD")
-                    reset_at_extra = extra_usage.get("resetAt", "")
+                    reset_at_extra = extra_usage.get("resetAt") or ""
                     
                     if monthly_limit > 0:
                         pct = max(0, min(100, round(100 - utilization)))
