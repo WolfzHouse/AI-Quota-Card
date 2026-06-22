@@ -13,6 +13,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN, CONF_PROXY_URL, CONF_DATA_SOURCE, CONF_SESSION_TOKEN, CONF_ACCOUNT_LABEL
 
@@ -64,6 +65,27 @@ async def async_setup_entry(
         return
 
     connections = data.get("connections", {})
+
+    # Remove entities and devices for connections that no longer exist in 9router
+    valid_unique_ids = {f"{data_source}_{conn_id}" for conn_id in connections}
+    valid_device_ids = {f"{data_source}_{conn_id}" for conn_id in connections}
+
+    entity_registry = er.async_get(hass)
+    for entity_entry in er.async_entries_for_config_entry(entity_registry, entry.entry_id):
+        if entity_entry.unique_id not in valid_unique_ids:
+            _LOGGER.debug("[AI Quota] Removing stale entity: %s", entity_entry.entity_id)
+            entity_registry.async_remove(entity_entry.entity_id)
+
+    device_registry = dr.async_get(hass)
+    for device_entry in dr.async_entries_for_config_entry(device_registry, entry.entry_id):
+        device_conn_ids = {ident[1] for ident in device_entry.identifiers if ident[0] == DOMAIN}
+        # Keep the hub device; only remove child connection devices with no valid match
+        if hub_id in device_conn_ids:
+            continue
+        if not device_conn_ids & valid_device_ids:
+            _LOGGER.debug("[AI Quota] Removing stale device: %s", device_entry.name)
+            device_registry.async_remove_device(device_entry.id)
+
     sensors = []
 
     for conn_id, conn_data in connections.items():
