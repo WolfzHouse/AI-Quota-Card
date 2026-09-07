@@ -1,0 +1,33 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>AI Web Quota</title>
+  <defs>
+    <!-- app-icon ground -->
+    <linearGradient id="q-bg" x1="0" y1="0" x2="0" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#282D37"/>
+      <stop offset="1" stop-color="#12141A"/>
+    </linearGradient>
+    <!-- gauge sweep: green through to violet, following the arc -->
+    <linearGradient id="q-arc" x1="120" y1="400" x2="392" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4ADE80"/>
+      <stop offset=".45" stop-color="#5EE9A0"/>
+      <stop offset=".8" stop-color="#A855F7"/>
+      <stop offset="1" stop-color="#A855F7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- full-bleed rounded square, so the icon needs no trimming -->
+  <rect width="512" height="512" rx="112" fill="url(#q-bg)"/>
+
+  <!-- unfilled remainder of the gauge -->
+  <path d="M331 126.1A150 150 0 0 1 331 385.9" fill="none" stroke="#4B5563"
+        stroke-width="14" stroke-linecap="round" stroke-dasharray="2 34"/>
+
+  <!-- neon halo, then the gauge itself (a wide translucent stroke stands in for a blur filter) -->
+  <path d="M331 385.9A150 150 0 1 1 331 126.1" fill="none" stroke="url(#q-arc)"
+        stroke-width="52" stroke-linecap="round" opacity=".22"/>
+  <path d="M331 385.9A150 150 0 1 1 331 126.1" fill="none" stroke="url(#q-arc)"
+        stroke-width="26" stroke-linecap="round"/>
+
+  <!-- bolt -->
+  <path d="M272 176 212 266h34l-6 70 60-94h-34z" fill="#FFFFFF"/>
+</svg>
