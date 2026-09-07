@@ -1,7 +1,15 @@
-<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-  <rect width="24" height="24" rx="4" fill="#EC4899"/>
-  <circle cx="12" cy="8" r="2" fill="#FFFFFF"/>
-  <path d="M12 10v4M9 14l3 3 3-3" fill="none" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M8 18h8" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round"/>
-  <path d="M7 6l2 2M17 6l-2 2" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+<svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <title>Antigravity</title>
+  <defs>
+    <!-- Google brand sweep: blue at the feet rising through green and yellow to red at the apex -->
+    <linearGradient id="ag-arch" x1="12" y1="21.1" x2="12" y2="3" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4285F4"/>
+      <stop offset=".34" stop-color="#4285F4"/>
+      <stop offset=".60" stop-color="#34A853"/>
+      <stop offset=".82" stop-color="#FBBC05"/>
+      <stop offset="1" stop-color="#EA4335"/>
+    </linearGradient>
+  </defs>
+  <path d="M3.9 19.3C7.6 16.2 8 4.75 12 4.75c4 0 4.4 11.45 8.1 14.55"
+        fill="none" stroke="url(#ag-arch)" stroke-width="3.5" stroke-linecap="round"/>
 </svg>
