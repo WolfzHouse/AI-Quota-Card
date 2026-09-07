@@ -15,7 +15,8 @@ Monitor your AI API quotas directly in Home Assistant with beautiful, auto-insta
 ## 🎉 One-Click Install via HACS (Recommended)
 
 ### Prerequisites
-1. Install [HACS](https://hacs.xyz/docs/setup/download) if you haven't already
+1. Home Assistant **2026.3** or newer
+2. Install [HACS](https://hacs.xyz/docs/setup/download) if you haven't already
 
 ### Installation Steps
 
