@@ -151,31 +151,71 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
 
         elif provider == "claude":
             models = []
-            
+
+            # Anthropic reports Fable's weekly window under versioned keys; collapse
+            # them onto one "fable" row, the way 9router normalizes them.
+            weekly_aliases = {"fable_5_1": "fable", "fable_5": "fable"}
+            # Row order used by 9router's Quota Tracker.
+            weekly_order = ("fable", "opus", "sonnet")
+
+            def has_utilization(window) -> bool:
+                if not isinstance(window, dict):
+                    return False
+                try:
+                    float(window.get("utilization"))
+                except (TypeError, ValueError):
+                    return False
+                return True
+
+            def build_row(display_name: str, window: dict) -> dict:
+                u = float(window["utilization"])
+                rt = ""
+                resets_at = window.get("resets_at")
+                if resets_at:
+                    try:
+                        from datetime import datetime
+                        # Anthropic gives ISO strings
+                        dt = datetime.fromisoformat(str(resets_at).replace("Z", "+00:00"))
+                        rt = dt.isoformat()
+                    except Exception:
+                        pass
+                return {
+                    "name": display_name,
+                    "percentage": max(0, min(100, round(100 - u))),
+                    "resetTime": rt
+                }
+
             def add_usage(key: str, display_name: str):
-                usage = data.get(key)
-                if usage and usage.get("utilization") is not None:
-                    u = float(usage["utilization"])
-                    rt = ""
-                    resets_at = usage.get("resets_at")
-                    if resets_at:
-                        try:
-                            from datetime import datetime
-                            # Anthropic gives ISO strings
-                            dt = datetime.fromisoformat(resets_at.replace("Z", "+00:00"))
-                            rt = dt.isoformat()
-                        except Exception:
-                            pass
-                    models.append({
-                        "name": display_name,
-                        "percentage": max(0, min(100, round(100 - u))),
-                        "resetTime": rt
-                    })
-            
+                window = data.get(key)
+                if has_utilization(window):
+                    models.append(build_row(display_name, window))
+
             add_usage("five_hour", "5-hour limit")
             add_usage("seven_day", "7-day limit")
-            add_usage("seven_day_sonnet", "7-day-sonnet limit")
-            add_usage("seven_day_opus", "7-day-opus limit")
+
+            # Model-specific weekly windows: seven_day_sonnet, seven_day_opus,
+            # seven_day_fable / seven_day_fable_5_1, plus the bare fable keys.
+            weekly_models = {}
+            for key, value in data.items():
+                if not has_utilization(value):
+                    continue
+                if key.startswith("seven_day_") and key != "seven_day":
+                    raw_name = key[len("seven_day_"):]
+                    weekly_models[weekly_aliases.get(raw_name, raw_name)] = value
+                elif key in ("fable", "fable_5", "fable_5_1"):
+                    weekly_models["fable"] = value
+
+            # Surface a Fable row even when Anthropic has not started reporting one.
+            if "fable" not in weekly_models and has_utilization(data.get("seven_day")):
+                weekly_models["fable"] = {
+                    "utilization": 0,
+                    "resets_at": data["seven_day"].get("resets_at"),
+                }
+
+            ordered = [n for n in weekly_order if n in weekly_models]
+            ordered += [n for n in weekly_models if n not in weekly_order]
+            for model_name in ordered:
+                models.append(build_row(f"7-day-{model_name} limit", weekly_models[model_name]))
 
             extra = data.get("extra_usage")
             if extra and isinstance(extra, dict) and extra.get("is_enabled"):
@@ -440,14 +480,44 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
             
             # Parse quotas from 9router response
             quotas = data.get("quotas") or {}
-            
-            for quota_name, quota_data in quotas.items():
+
+            # Claude quota rows, using 9router's own labels and Quota Tracker order.
+            # Keys from other providers fall through to the generic title-cased label
+            # and keep the order the API returned them in.
+            claude_quota_labels = {
+                "session (5h)": "Session (5h)",
+                "weekly (7d)": "Weekly (7d)",
+                "weekly fable (7d)": "Weekly Fable (7d)",
+                "weekly opus (7d)": "Weekly Opus (7d)",
+                "weekly sonnet (7d)": "Weekly Sonnet (7d)",
+            }
+            claude_quota_order = {
+                "session (5h)": 0,
+                "weekly (7d)": 1,
+                "weekly fable (7d)": 2,
+                "weekly opus (7d)": 3,
+                "weekly sonnet (7d)": 4,
+            }
+
+            # sorted() is stable, so unranked keys keep their original order.
+            ordered_quotas = sorted(
+                quotas.items(),
+                key=lambda kv: claude_quota_order.get(kv[0], 99),
+            )
+
+            for quota_name, quota_data in ordered_quotas:
                 if not isinstance(quota_data, dict):
                     continue
-                
+
                 used = float(quota_data.get("used") or 0)
                 total = float(quota_data.get("total") or 100)
-                remaining = float(quota_data.get("remaining") or 0)
+                # Some payloads omit remaining/remainingPercentage; derive the
+                # remainder from used/total rather than reporting an empty bar.
+                raw_remaining = quota_data.get("remaining")
+                remaining = (
+                    float(raw_remaining) if raw_remaining is not None
+                    else max(0.0, total - used)
+                )
                 remaining_pct = quota_data.get("remainingPercentage")
                 reset_at = quota_data.get("resetAt") or ""
                 unlimited = quota_data.get("unlimited") or False
@@ -498,7 +568,9 @@ class AIQuotaDataUpdateCoordinator(DataUpdateCoordinator):
                         expires_in = ""
                 
                 # Format display name
-                display_name = quota_name.replace("(", "").replace(")", "").title()
+                display_name = claude_quota_labels.get(quota_name) or (
+                    quota_name.replace("(", "").replace(")", "").title()
+                )
                 
                 # Format usage info - numeric only (no currency symbol)
                 # API values are already normalized to plan units.
