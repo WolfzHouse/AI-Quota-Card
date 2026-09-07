@@ -288,25 +288,55 @@ class AIQuotaCard extends HTMLElement {
     
     if (provider === 'claude') {
       const models = [];
-      const addUsage = (key, name) => {
-        const usage = data[key];
-        if (usage && usage.utilization !== undefined) {
-          const u = parseFloat(usage.utilization);
-          if (!isNaN(u)) {
-             let rt = '';
-             if (usage.resets_at) {
-                const ms = new Date(usage.resets_at).getTime();
-                rt = formatResetTime(ms);
-             }
-             models.push({ name, percentage: Math.max(0, Math.min(100, 100 - u)), resetTime: rt });
-          }
+
+      // Anthropic reports Fable's weekly window under versioned keys; collapse
+      // them onto one "fable" row, the way 9router normalizes them.
+      const WEEKLY_ALIASES = { fable_5_1: 'fable', fable_5: 'fable' };
+      // Row order used by 9router's Quota Tracker.
+      const WEEKLY_ORDER = ['fable', 'opus', 'sonnet'];
+
+      const hasUtilization = (w) =>
+        w && typeof w === 'object' && !isNaN(parseFloat(w.utilization));
+
+      const buildRow = (name, w) => {
+        const u = parseFloat(w.utilization);
+        let rt = '';
+        if (w.resets_at) {
+          const ms = new Date(w.resets_at).getTime();
+          rt = formatResetTime(ms);
         }
+        return { name, percentage: Math.max(0, Math.min(100, 100 - u)), resetTime: rt };
       };
+
+      const addUsage = (key, name) => {
+        if (hasUtilization(data[key])) models.push(buildRow(name, data[key]));
+      };
+
       addUsage('five_hour', '5-hour limit');
       addUsage('seven_day', '7-day limit');
-      addUsage('seven_day_sonnet', '7-day-sonnet limit');
-      addUsage('seven_day_opus', '7-day-opus limit');
-      
+
+      // Model-specific weekly windows: seven_day_sonnet, seven_day_opus,
+      // seven_day_fable / seven_day_fable_5_1, plus the bare fable keys.
+      const weeklyModels = {};
+      Object.entries(data).forEach(([key, value]) => {
+        if (!hasUtilization(value)) return;
+        if (key.startsWith('seven_day_') && key !== 'seven_day') {
+          const raw = key.slice('seven_day_'.length);
+          weeklyModels[WEEKLY_ALIASES[raw] || raw] = value;
+        } else if (key === 'fable' || key === 'fable_5' || key === 'fable_5_1') {
+          weeklyModels.fable = value;
+        }
+      });
+
+      // Surface a Fable row even when Anthropic has not started reporting one.
+      if (!('fable' in weeklyModels) && hasUtilization(data.seven_day)) {
+        weeklyModels.fable = { utilization: 0, resets_at: data.seven_day.resets_at };
+      }
+
+      WEEKLY_ORDER.filter((n) => n in weeklyModels)
+        .concat(Object.keys(weeklyModels).filter((n) => !WEEKLY_ORDER.includes(n)))
+        .forEach((n) => models.push(buildRow(`7-day-${n} limit`, weeklyModels[n])));
+
       const extra = data.extra_usage;
       if (extra && extra.is_enabled) {
         let utilization = 0;

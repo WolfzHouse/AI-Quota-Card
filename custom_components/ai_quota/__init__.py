@@ -19,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
-_CARD_VERSION = "2.0.10"
+_CARD_VERSION = "2.0.11"
 _SUMMARY_CARD_BASE_URL = f"/{DOMAIN}/ai-quota-summary-card.js"
 _SUMMARY_CARD_URL = f"{_SUMMARY_CARD_BASE_URL}?v={_CARD_VERSION}"
 _LOGOS_BASE_URL = f"/{DOMAIN}/logos"
